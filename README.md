@@ -31,13 +31,49 @@ Session/conversation management is treated as a first-class architectural concer
 * **Preset system prompts:** Easily placed as plain text files (with template variable support), or directories with metadata for other settings, if you need that.
 * **A clean modular design:** That separates CLI convenience from programmatic access.
 
-## Some easy use.
+## Quick Start
 
-Set your backend URL in an env var (I'm unfamiliar with these, but they're in here; feel free to PR).
-Defaults to 127.0.0.1 port 8080.
-
+### Installation
+```bash
+git clone https://github.com/yourusername/z
+cd z
+./install.sh
 ```
+
+### Basic Usage
+```bash
+# Simple query
+z "Hello, how are you?"
+
+# Interactive mode
+z -i
+
+# With a specific session
+z -n myproject "What should I focus on?"
+```
+
+### Configuration
+Set your LLM server (default: http://127.0.0.1:8080):
+
+```bash
+# Local llama.cpp server
+export LLAMA_URL=http://localhost:8080
+
+# OpenAI API
+export OPENAI_BASE_URL=https://api.openai.com/v1
+export OPENAI_API_KEY=your-key-here
+```
+
+### Onboarding
+```bash
+./onboarding.pl    # Comprehensive feature tour
+./health-check.pl  # Verify installation
+```
+
+## Environment Variables
+
 Pick your favorite:
+```
 LLAMA_URL LLAMA_API_URL LLAMACPP_SERVER LLAMA_CPP_SERVER LLM_API_URL
 OPENAI_BASE_URL OPENAI_API_BASE OPENAI_URL
 
@@ -499,6 +535,71 @@ for my $data_file (@files) {
 
 ## Installation & Setup
 
+### Installation Options
+
+ZChat offers multiple installation methods for maximum reliability:
+
+#### **Master Installer (Recommended)**
+```bash
+git clone https://github.com/yourusername/z
+cd z
+./install-master.sh  # Choose from multiple installation methods
+```
+
+#### **Installation Methods**
+
+**1. Fat Binary (Most Reliable)**
+```bash
+./install-fat.sh
+```
+- ✅ Single file executable with all dependencies embedded
+- ✅ Zero external dependencies
+- ✅ Works offline
+- ✅ No installation complexity
+
+**2. Static Bundle (Portable)**
+```bash
+./create-bundle.sh
+```
+- ✅ Self-contained bundle with downloaded dependencies
+- ✅ No CPAN installation required
+- ✅ Portable across systems
+- ✅ Good balance of features and reliability
+
+**3. Standard Installation (Full Features)**
+```bash
+./install.sh
+```
+- ✅ Complete ZChat with all features
+- ✅ Requires CPAN and system packages
+- ✅ Most feature-complete
+- ⚠️ May require troubleshooting
+
+**4. Minimal Installation (Quick Setup)**
+```bash
+./install-deps-minimal.sh
+```
+- ✅ Core dependencies only
+- ✅ Fast installation
+- ✅ Image processing disabled
+- ✅ Good for basic usage
+
+#### **Additional Tools**
+```bash
+./onboarding.pl     # Interactive feature tour
+./health-check.pl   # Verify everything works
+```
+
+**Supported Systems:**
+- Debian/Ubuntu (apt-get)
+- RedHat/CentOS (yum)
+- Arch Linux (pacman)
+- openSUSE (zypper)
+- macOS (Homebrew)
+- Windows (Strawberry Perl/ActivePerl)
+
+### Manual Installation
+
 ZChat is designed for **distribution without installation**. The `FindBin` approach means you can:
 
 ```bash
@@ -508,11 +609,10 @@ cd zchat
 ```
 
 Dependencies are standard CPAN modules that most Perl installations include.
-(Sorry, I've not fleshed out what they are for you to install them.)
 For missing modules:
 
 ```bash
-cpan install Mojo::UserAgent JSON::XS YAML::XS Text::Xslate Image::Magick
+cpan install Mojo::UserAgent JSON::XS YAML::XS Text::Xslate Image::Magick Clipboard
 ```
 
 ### Configuration

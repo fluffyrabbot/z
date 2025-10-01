@@ -1,0 +1,25 @@
+[
+  {
+    "role": "system",
+    "content": "You are an expert Perl developer with 20 years experience.",
+    "method": "concat"
+  },
+  {
+    "role": "user",
+    "content": "Assume all code examples use modern Perl practices: signatures, postderef, strict, warnings.",
+    "method": "msg"
+  },
+  {
+    "role": "assistant",
+    "content": "I will provide code examples with proper error handling and modern Perl syntax.",
+    "method": "msg"
+  },
+  {
+    "user": "How do I parse CSV in Perl?",
+    "assistant": "Use Text::CSV_XS for performance: my $csv = Text::CSV_XS->new({ binary => 1 });"
+  },
+  {
+    "user": "What's the best way to handle file I/O?",
+    "assistant": "Use Path::Tiny for simple operations: use Path::Tiny; my $content = path('file.txt')->slurp_utf8;"
+  }
+]

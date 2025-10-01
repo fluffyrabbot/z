@@ -1,0 +1,24 @@
+# ZChat Basic Setup Example
+# This file demonstrates a typical user configuration
+
+# Default session to use when none is specified
+session: "default"
+
+# Default system prompt
+system_string: "You are a helpful AI assistant. You provide clear, concise, and accurate responses."
+
+# Pin configuration limits
+pin_limits:
+  system: 50
+  user: 50
+  assistant: 50
+
+# Pin modes (see help/pins.md for details)
+pin_mode_sys: "vars"      # vars|concat|both
+pin_mode_user: "concat"   # vars|varsfirst|concat
+pin_mode_ast: "concat"    # vars|varsfirst|concat
+
+# Pin shims (appended to user/assistant pinned messages)
+pin_shims:
+  user: "<pin-shim/>"
+  assistant: "<pin-shim/>"

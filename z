@@ -30,7 +30,7 @@ use Data::Dumper;
 use List::Util qw(max);
 use Clipboard;
 use MIME::Base64;
-use Image::Magick;
+# use Image::Magick; # Optional - will be loaded conditionally
 use File::Slurper qw(write_text read_text read_lines read_binary);
 use File::Basename;
 use Encode qw(encode_utf8 decode);
@@ -388,6 +388,11 @@ if ($opt->image) {
             die "${bred}ERROR: Image file not found: $image_path$rst\n";
         }
 
+        # Check if Image::Magick is available
+        unless (eval "require Image::Magick; 1") {
+            die "${bred}ERROR: Image::Magick not available. Install with: cpanm Image::Magick$rst\n";
+        }
+        
         my $image = Image::Magick->new;
         $image->Read($image_path);
         my $base64_image = encode_base64($image->ImageToBlob());

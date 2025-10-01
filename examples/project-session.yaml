@@ -1,0 +1,26 @@
+# ZChat Project Session Example
+# This file demonstrates a project-specific session configuration
+
+# Session creation timestamp
+created: 1703123456
+
+# Project-specific system prompt
+system_file: "/path/to/project/prompts/api-design.md"
+
+# Alternative: inline system prompt
+# system_string: "You are an expert API designer. Focus on REST principles, clear documentation, and maintainable code."
+
+# Project-specific pin templates
+pin_tpl_user: ": if $pin_idx == 0 && $pin_cnt > 0 {
+## Project Context
+<: $pins_str :>
+: }"
+
+pin_tpl_ast: ": if $pin_idx == 0 && $pin_cnt > 0 {
+I have these design principles to guide me:
+<: $pins_str :>
+: }"
+
+# Pin modes for this project
+pin_mode_user: "varsfirst"
+pin_mode_ast: "varsfirst"
