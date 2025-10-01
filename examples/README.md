@@ -24,9 +24,6 @@ z -n myproject --system-file examples/project-session.yaml --ss
 
 ### Pin Examples
 ```bash
-# Load example pins
-z --pins-file examples/pin-examples.json
-z --pins-list  # See what was loaded
 ```
 
 ## Customization
@@ -41,4 +38,16 @@ These examples are starting points. Modify them to match your specific needs:
 For more information, see:
 - [help/pins.md](../help/pins.md) - Pin system documentation
 - [PRECEDENCE.md](../PRECEDENCE.md) - Configuration system
-- [QUICKSTART.md](../QUICKSTART.md) - Quick start guide
+- [INSTALLATION.md](../INSTALLATION.md) - Quick start guide
+### Pin Examples
+```bash
+# Load example pins individually (--pins-file currently has a bug)
+z --pin "You are an expert Perl developer with 20 years experience."
+z --pin-user "Assume all code examples use modern Perl practices: signatures, postderef, strict, warnings."
+z --pin-ast "I will provide code examples with proper error handling and modern Perl syntax."
+z --pins-list  # See what was loaded
+```
+
+### Known Issues
+- `--pins-file` option currently has a bug (missing `load_pipes_file` function)
+- Use individual pin commands instead of pin files for now
