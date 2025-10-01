@@ -341,7 +341,7 @@ sub run_interactive_demo() {
     say "";
     
     say "Now let's try a query with these pins active:";
-    say "Query: 'Explain the concept of recursion in programming'";
+    say "Query: 'Sing the praises of perl to me.'";
     say "";
     
     # This would normally make an actual LLM call
@@ -349,7 +349,7 @@ sub run_interactive_demo() {
     say "  - System prompt with pinned system message";
     say "  - User pin as context";
     say "  - Assistant pin as example";
-    say "  - Your query: 'Explain the concept of recursion in programming'";
+    say "  - Your query: 'Sing the praises of perl to me.'";
     say "";
     
     say "The response would be streamed in real-time and stored in history.";
