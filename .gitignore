@@ -1,0 +1,23 @@
+# Generated bundles and installation artifacts
+zchat-static-bundle/
+zchat-bundle/
+*.bundle/
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.swp
+*.bak
+*~
+
+# Perl build artifacts
+blib/
+_build/
+Build/
+MYMETA.json
+MYMETA.yml
+
+# OS-specific files
+.DS_Store
+Thumbs.db
