@@ -2,6 +2,11 @@
 
 The ZChat installer automatically detects your platform and environment, then installs dependencies and configures paths accordingly to provide the best possible experience. This document explains how the platform system works and what it means for you.
 
+**Note:** ZChat provides native installers for different environments:
+- **Linux/macOS/WSL2**: Bash installer (`install.sh`)
+- **Windows PowerShell**: PowerShell installer (`install.ps1`)
+- **Windows GUI**: Batch file installer (`install.bat`)
+
 ## Supported Platforms
 
 ZChat works seamlessly across:

@@ -1,658 +1,287 @@
 #!/bin/bash
-# ZChat Unified Installer v0.9
-# Consolidated installer with all functionality in one script
+# ZChat Slim Installer v0.9
+# Streamlined installer with minimal bloat
 
 set -e
 
-# Source common utilities
-if [ -f "./install/install-common.sh" ]; then
-    source ./install/install-common.sh
-else
-    echo "Error: install-common.sh not found"
-    exit 1
-fi
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
 
-# Installation modes
-INSTALL_MODE="adaptive"  # standard, minimal, adaptive, single, bundle, platform, optimized, repair
+print_status() { echo -e "${GREEN}[OK]${NC} $1"; }
+print_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
+print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+print_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 
-# Check for help first
-for arg in "$@"; do
-    if [[ "$arg" == "--help" || "$arg" == "-h" ]]; then
-        # Show help without initializing (to avoid side effects)
-        echo "ZChat Unified Installer v0.9"
-        echo ""
-        echo "Usage: $0 [OPTIONS]"
-        echo ""
-        echo "Installation Modes:"
-        echo "  (default)         Smart installation with environment detection"
-        echo "  --minimal         Quick installation with core dependencies only"
-        echo "  --standard        Standard installation with interactive prompts"
-        echo "  --single          Create single executable (PAR Packer)"
-        echo "  --bundle          Create static bundle (self-contained) [RECOMMENDED]"
-        echo "  --platform        Create platform-specific bundles"
-        echo "  --optimized       Create size-optimized bundle"
-        echo "  --repair          Repair existing installation"
-        echo ""
-        echo "Options:"
-        echo "  --verbose, -v     Verbose output"
-        echo "  --force, -f       Force installation (overwrite existing)"
-        echo "  --offline, -o    Offline installation mode"
-        echo "  --help, -h        Show this help"
-        echo ""
-        echo "Examples:"
-        echo "  $0                    # Smart installation (default)"
-        echo "  $0 --minimal          # Minimal installation"
-        echo "  $0 --standard         # Standard installation with prompts"
-        echo "  $0 --bundle           # Create static bundle (recommended)"
-        echo "  $0 --single           # Create single executable (PAR Packer)"
-        echo "  $0 --platform         # Create platform-specific bundles"
-        echo "  $0 --optimized        # Create size-optimized bundle"
-        echo "  $0 --repair           # Repair existing installation"
-        exit 0
-    fi
-done
+# Global variables
+VERBOSE=false
+FORCE=false
+OFFLINE=false
+INSTALL_MODE="adaptive"
 
-# Initialize installer
-init_installer
-
-# Show help
-show_help() {
-    echo "ZChat Unified Installer v0.9"
-    echo ""
-    echo "Usage: $0 [OPTIONS]"
-    echo ""
-    echo "Installation Modes:"
-    echo "  (default)         Smart installation with environment detection"
-    echo "  --minimal         Quick installation with core dependencies only"
-    echo "  --standard        Standard installation with interactive prompts"
-    echo "  --single          Create single executable (PAR Packer)"
-    echo "  --bundle          Create static bundle (self-contained) [RECOMMENDED]"
-    echo "  --platform        Create platform-specific bundles"
-    echo "  --optimized       Create size-optimized bundle"
-    echo "  --repair          Repair existing installation"
-    echo ""
-    echo "Options:"
-    echo "  --verbose, -v     Verbose output"
-    echo "  --force, -f       Force installation (overwrite existing)"
-    echo "  --offline, -o    Offline installation mode"
-    echo "  --help, -h        Show this help"
-    echo ""
-    echo "Examples:"
-    echo "  $0                    # Smart installation (default)"
-    echo "  $0 --minimal          # Minimal installation"
-    echo "  $0 --standard         # Standard installation with prompts"
-    echo "  $0 --bundle           # Create static bundle (recommended)"
-    echo "  $0 --single           # Create single executable (PAR Packer)"
-    echo "  $0 --platform         # Create platform-specific bundles"
-    echo "  $0 --optimized        # Create size-optimized bundle"
-    echo "  $0 --repair           # Repair existing installation"
-}
-
-# Parse all arguments
+# Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --verbose|-v)
-            VERBOSE=true
-            shift
+        --verbose|-v) VERBOSE=true; shift ;;
+        --force|-f) FORCE=true; shift ;;
+        --offline|-o) OFFLINE=true; shift ;;
+        --minimal) INSTALL_MODE="minimal"; shift ;;
+        --standard) INSTALL_MODE="standard"; shift ;;
+        --bundle) INSTALL_MODE="bundle"; shift ;;
+        --single) INSTALL_MODE="single"; shift ;;
+        --platform) INSTALL_MODE="platform"; shift ;;
+        --optimized) INSTALL_MODE="optimized"; shift ;;
+        --repair) INSTALL_MODE="repair"; shift ;;
+        --help|-h) 
+            echo "ZChat Slim Installer v0.9"
+            echo "Usage: $0 [OPTIONS]"
+            echo ""
+            echo "Modes: --minimal, --standard, --bundle, --single, --platform, --optimized, --repair"
+            echo "Options: --verbose, --force, --offline, --help"
+            exit 0 
             ;;
-        --force|-f)
-            FORCE=true
-            shift
-            ;;
-        --offline|-o)
-            OFFLINE=true
-            shift
-            ;;
-        --minimal)
-            INSTALL_MODE="minimal"
-            shift
-            ;;
-        --adaptive)
-            INSTALL_MODE="adaptive"
-            shift
-            ;;
-        --single)
-            INSTALL_MODE="single"
-            shift
-            ;;
-        --bundle)
-            INSTALL_MODE="bundle"
-            shift
-            ;;
-        --platform)
-            INSTALL_MODE="platform"
-            shift
-            ;;
-        --optimized)
-            INSTALL_MODE="optimized"
-            shift
-            ;;
-        --repair)
-            INSTALL_MODE="repair"
-            shift
-            ;;
-        --help|-h)
-            show_help
-            exit 0
-            ;;
-        *)
-            echo "Unknown option: $1"
-            show_help
-            exit 1
-            ;;
+        *) print_error "Unknown option: $1"; exit 1 ;;
     esac
 done
 
-# Check for existing installation using comprehensive detection
-check_existing_installation() {
-    # Use comprehensive installation detector if available
-    if [ -f "./install/installation-detector.sh" ]; then
-        source ./install/installation-detector.sh
-        detect_all_installations
-        
-        if [ $INSTALLATION_COUNT -gt 0 ]; then
-            print_warning "Existing ZChat installation(s) detected!"
-            echo ""
-            generate_installation_report
-            echo ""
-            echo "ZChat appears to already be installed on this system."
-            echo "To avoid conflicts and preserve your existing setup, please use:"
-            echo ""
-            echo "  • Repair existing installation: $0 --repair"
-            echo "  • Clean uninstall if needed"
-            echo ""
-            echo "If you want to force a fresh installation anyway, run:"
-            echo -e "  ${LIGHT_BLUE}$0 --force${NC}"
-            echo ""
-            echo -e "${RED}Exiting to protect existing installation.${NC}"
-            echo "Use --force flag to override this protection."
-            exit 0
-        fi
-        return
-    fi
-    
-    # Fallback to basic detection
-    check_basic_existing_installation
+# Simple progress bar
+show_progress() {
+    local current=$1 total=$2 desc="$3"
+    local percent=$((current * 100 / total))
+    local filled=$((percent / 2))
+    local empty=$((50 - filled))
+    printf "\r[%s%s] %d%% %s" "$(printf "%*s" $filled | tr ' ' '#')" "$(printf "%*s" $empty | tr ' ' '-')" $percent "$desc"
+    [ $current -eq $total ] && echo
 }
 
-# Basic existing installation check (fallback)
-check_basic_existing_installation() {
-    # Check for system installation (installed to user directories)
-    local system_installed=false
-    if [ -f "$HOME/.config/zchat/user.yaml" ]; then
-        system_installed=true
+# Detect environment
+detect_env() {
+    # OS detection
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        OS_TYPE="linux"
+        if grep -qi microsoft /proc/version 2>/dev/null; then
+            IS_WSL="true"
+        fi
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        OS_TYPE="macos"
+    elif [[ "$OSTYPE" == "cygwin" ]] || [[ "$OSTYPE" == "msys" ]]; then
+        OS_TYPE="windows"
+    else
+        OS_TYPE="unknown"
     fi
     
-    # Check for binary in system PATH
-    local binary_in_path=false
+    # Install prefix
+    if [ "$EUID" -eq 0 ]; then
+        INSTALL_PREFIX="/usr/local"
+    else
+        INSTALL_PREFIX="$HOME/.local"
+    fi
+    
+    # Config directory
+    if [ -n "${XDG_CONFIG_HOME:-}" ]; then
+        CONFIG_DIR="$XDG_CONFIG_HOME/zchat"
+    elif [ "$OS_TYPE" = "windows" ]; then
+        CONFIG_DIR="${APPDATA:-$HOME/AppData/Roaming}/zchat"
+    elif [ "$OS_TYPE" = "macos" ]; then
+        CONFIG_DIR="$HOME/Library/Application Support/zchat"
+    else
+        CONFIG_DIR="$HOME/.config/zchat"
+    fi
+}
+
+# Check existing installation
+check_existing() {
+    local found=false
+    
+    # Check binary
     if command -v z >/dev/null 2>&1; then
         local z_path=$(command -v z)
-        # Only consider it installed if it's not the source file
         if [ "$z_path" != "$(pwd)/z" ] && [ "$z_path" != "./z" ]; then
-            binary_in_path=true
+            found=true
         fi
     fi
     
-    # Check for installed binary in standard locations
-    local binary_installed=false
-    if [ -f "$install_bin_dir/z" ] || [ -f "$install_bin_dir/zchat" ]; then
-        binary_installed=true
+    # Check config
+    if [ -d "$CONFIG_DIR" ]; then
+        found=true
     fi
     
-    # Only consider it a system installation if it's actually installed, not just source
-    if [ "$system_installed" = true ] || [ "$binary_in_path" = true ] || [ "$binary_installed" = true ]; then
-        if [ "$FORCE" = "true" ]; then
-            print_warning "Force flag detected - proceeding with fresh installation..."
-            echo ""
-            # Backup existing config
-            backup_config "$HOME/.config/zchat/user.yaml"
-        else
-            print_warning "Existing ZChat installation detected!"
-            echo ""
-            echo "ZChat appears to already be installed on this system."
-            echo "To avoid conflicts and preserve your existing setup, please use:"
-            echo ""
-            echo -e "  ${LIGHT_BLUE}$0 --repair${NC}"
-            echo ""
-            echo "The repair installer can:"
-            echo "  • Fix dependency issues"
-            echo "  • Update to the latest version"
-            echo "  • Diagnose problems"
-            echo "  • Clean uninstall if needed"
-            echo ""
-            echo "If you want to force a fresh installation anyway, run:"
-            echo -e "  ${LIGHT_BLUE}$0 --force${NC}"
-            echo ""
-            echo -e "${RED}Exiting to protect existing installation.${NC}"
-            echo "Use --force flag to override this protection."
-            exit 0
+    if [ "$found" = true ] && [ "$FORCE" != true ]; then
+        print_warning "Existing installation detected. Use --force to overwrite."
+        exit 0
+    fi
+}
+
+# Install system dependencies
+install_system_deps() {
+    print_info "Installing system dependencies..."
+    
+    case "$OS_TYPE" in
+        "linux")
+            if command -v apt-get >/dev/null 2>&1; then
+                sudo apt-get update -qq
+                sudo apt-get install -y build-essential libssl-dev curl wget xclip
+            elif command -v yum >/dev/null 2>&1; then
+                sudo yum install -y gcc openssl-devel curl wget xclip
+            elif command -v pacman >/dev/null 2>&1; then
+                sudo pacman -S --noconfirm base-devel openssl curl wget xclip
+            fi
+            ;;
+        "macos")
+            if command -v brew >/dev/null 2>&1; then
+                brew install openssl curl wget
+            fi
+            ;;
+    esac
+}
+
+# Install Perl modules
+install_perl_modules() {
+    local modules=("Mojo::UserAgent" "JSON::XS" "YAML::XS" "Getopt::Long::Descriptive" "URI::Escape" "Data::Dumper" "String::ShellQuote" "File::Slurper" "File::Copy" "File::Temp" "File::Compare" "Carp" "Term::ReadLine" "Capture::Tiny" "LWP::UserAgent")
+    
+    print_info "Installing Perl modules..."
+    
+    # Install cpanm if needed
+    if ! command -v cpanm >/dev/null 2>&1; then
+        curl -L https://cpanmin.us | perl - App::cpanminus
+    fi
+    
+    local total=${#modules[@]}
+    local current=0
+    
+    for module in "${modules[@]}"; do
+        current=$((current + 1))
+        show_progress $current $total "Installing $module"
+        
+        if ! cpanm --notest --quiet "$module" 2>/dev/null; then
+            print_warning "Failed to install $module"
+        fi
+    done
+    echo
+}
+
+# Install ZChat
+install_zchat() {
+    print_info "Installing ZChat..."
+    
+    # Create directories
+    mkdir -p "$INSTALL_PREFIX/bin"
+    mkdir -p "$CONFIG_DIR/system"
+    mkdir -p "$CONFIG_DIR/sessions"
+    
+    # Copy binary
+    cp "./z" "$INSTALL_PREFIX/bin/z"
+    chmod +x "$INSTALL_PREFIX/bin/z"
+    
+    # Create config
+    if [ ! -f "$CONFIG_DIR/user.yaml" ]; then
+        cat > "$CONFIG_DIR/user.yaml" << 'EOF'
+session: "default"
+system_string: "You are a helpful AI assistant."
+api_key: ""
+model: "gpt-4"
+temperature: 0.7
+max_tokens: 4000
+EOF
+    fi
+    
+    # Create system prompt
+    cat > "$CONFIG_DIR/system/default" << 'EOF'
+You are a helpful AI assistant. You provide clear, concise, and accurate responses.
+
+You understand that this is a command-line interface, so you should:
+- Be direct and practical in your responses
+- Provide code examples when relevant
+- Explain technical concepts clearly
+- Focus on actionable advice
+EOF
+    
+    # Create session
+    mkdir -p "$CONFIG_DIR/sessions/default"
+    cat > "$CONFIG_DIR/sessions/default/session.yaml" << 'EOF'
+created: 1703123456
+EOF
+    
+    print_status "ZChat installed to $INSTALL_PREFIX/bin/z"
+}
+
+# Configure shell
+configure_shell() {
+    local shell_config=""
+    
+    case "$SHELL" in
+        *bash) shell_config="$HOME/.bashrc" ;;
+        *zsh) shell_config="$HOME/.zshrc" ;;
+        *fish) shell_config="$HOME/.config/fish/config.fish" ;;
+        *) shell_config="$HOME/.profile" ;;
+    esac
+    
+    if [ -n "$shell_config" ] && [ -f "$shell_config" ]; then
+        if ! grep -q "$INSTALL_PREFIX/bin" "$shell_config"; then
+            echo "export PATH=\"$INSTALL_PREFIX/bin:\$PATH\"" >> "$shell_config"
+            print_status "Added to PATH in $shell_config"
         fi
     fi
 }
 
-# Standard installation
-install_standard() {
-    print_info "Starting standard installation..."
+# Main installation
+install_main() {
+    print_info "Starting ZChat installation..."
     
-    # Detect environment for platform-sensitive paths
-    if [ -f "./install/environment-detector.sh" ]; then
-        source ./install/environment-detector.sh
-        detect_environment
-        print_info "Environment detection complete"
-    else
-        print_warning "Environment detector not found, using default paths"
-        # Set default paths if environment detection fails
-        INSTALL_PREFIX="$HOME/.local"
-    fi
+    detect_env
+    check_existing
+    install_system_deps
+    install_perl_modules
+    install_zchat
+    configure_shell
+    
+    print_status "Installation completed!"
     echo ""
-    
-    # Run pre-flight checks
-    if ! preflight_checks; then
-        print_error "Pre-flight checks failed. Aborting installation."
-        exit 1
-    fi
+    echo "Usage:"
+    echo "  z --help                    # Show help"
+    echo "  z \"Hello, world!\"          # Chat with AI"
+    echo "  z --config                  # Configure API key"
     echo ""
-
-    # Interactive dependency selection
-    if [ "$OFFLINE" = "false" ]; then
-        select_dependencies
-        echo ""
-    fi
-
-    # Install system dependencies
-    install_system_dependencies
-    echo ""
-    
-    # Install dependencies
-    print_info "Installing Perl dependencies..."
-    echo ""
-    
-    if [ "$INSTALL_OPTIONAL" = "true" ]; then
-        modules=($(export_all_modules))
-    else
-        modules=($(export_core_modules))
-    fi
-    
-    if ! install_missing_modules "${modules[@]}"; then
-        print_error "Dependency installation failed."
-        exit 1
-    fi
-
-    # Make executable
-    print_info "Making ZChat executable..."
-    make_z_executable
-
-    # Install binary to system PATH with progress
-    print_info "Installing binary to system PATH..."
-    mkdir -p "$install_bin_dir"
-    
-    # Show progress for binary installation
-    local install_steps=("Installing binary" "Setting permissions")
-    local total_steps=${#install_steps[@]}
-    local current_step=0
-    local start_time=$(date +%s)
-    
-    # Step 1: Copy binary
-    current_step=$((current_step + 1))
-    show_progress_bar $current_step $total_steps "${install_steps[0]}" $start_time
-    
-    if cp "./z" "$install_bin_dir/z"; then
-        show_enhanced_progress $current_step $total_steps "${install_steps[0]}" "success" $start_time
-    else
-        show_enhanced_progress $current_step $total_steps "${install_steps[0]}" "failed" $start_time
-        print_error "Failed to install binary to system PATH"
-        exit 1
-    fi
-    
-    # Step 2: Set permissions
-    current_step=$((current_step + 1))
-    show_progress_bar $current_step $total_steps "${install_steps[1]}" $start_time
-    
-    chmod +x "$install_bin_dir/z"
-    show_enhanced_progress $current_step $total_steps "${install_steps[1]}" "success" $start_time
-    
-    print_status "Binary installed to $install_bin_dir/z"
-    
-    # Install lib directory with progress
-    if [ -d "./lib" ]; then
-        print_info "Installing library files..."
-        
-        # Show progress for library installation
-        local lib_steps=("Copying library files" "Setting permissions")
-        local lib_total=${#lib_steps[@]}
-        local lib_current=0
-        local lib_start_time=$(date +%s)
-        
-        # Step 1: Copy libraries
-        lib_current=$((lib_current + 1))
-        show_progress_bar $lib_current $lib_total "${lib_steps[0]}" $lib_start_time
-        
-        if cp -r "./lib" "$install_bin_dir/"; then
-            show_enhanced_progress $lib_current $lib_total "${lib_steps[0]}" "success" $lib_start_time
-        else
-            show_enhanced_progress $lib_current $lib_total "${lib_steps[0]}" "failed" $lib_start_time
-            print_error "Failed to install library files"
-            exit 1
-        fi
-        
-        # Step 2: Set permissions
-        lib_current=$((lib_current + 1))
-        show_progress_bar $lib_current $lib_total "${lib_steps[1]}" $lib_start_time
-        
-        chmod -R +x "$install_bin_dir/lib" 2>/dev/null || true
-        show_enhanced_progress $lib_current $lib_total "${lib_steps[1]}" "success" $lib_start_time
-        
-        print_status "Library files installed to $install_bin_dir/lib"
-    else
-        print_error "lib directory not found"
-        exit 1
-    fi
-
-    # Create configuration
-    create_default_config
-
-    # Detect and configure shell
-    print_info "Configuring shell integration..."
-    if detect_and_configure_shell; then
-        print_status "Shell configuration detected"
-    else
-        print_warning "Shell configuration not found"
-    fi
-
-    # Run post-installation tests
-    print_info "Running post-installation tests..."
-    if post_install_test; then
-        print_status "All tests passed!"
-    else
-        print_warning "Some tests failed, but installation may still work"
-    fi
-    echo ""
-
-    # Configure API (optional)
-    if [ -f "./install/api-config.sh" ]; then
-        source ./install/api-config.sh
-        configure_api
-        test_api_config
-    else
-        show_api_setup_instructions
-    fi
-
-    show_completion_message
-}
-
-# Minimal installation
-install_minimal() {
-    print_info "Starting minimal installation..."
-    
-    # Detect environment for platform-sensitive paths
-    if [ -f "./install/environment-detector.sh" ]; then
-        source ./install/environment-detector.sh
-        detect_environment
-        print_info "Environment detection complete"
-    else
-        print_warning "Environment detector not found, using default paths"
-        # Set default paths if environment detection fails
-        INSTALL_PREFIX="$HOME/.local"
-    fi
-    echo ""
-    
-    # Run pre-flight checks
-    if ! preflight_checks; then
-        print_error "Pre-flight checks failed. Aborting installation."
-        exit 1
-    fi
-    echo ""
-
-    # Install system dependencies
-    install_system_dependencies
-    echo ""
-    
-    # Install only core dependencies
-    print_info "Installing core dependencies only..."
-    modules=($(export_core_modules))
-    
-    if ! install_missing_modules "${modules[@]}"; then
-        print_error "Core dependency installation failed."
-        exit 1
-    fi
-
-    # Make executable
-    make_z_executable
-
-    # Install binary to system PATH with progress
-    print_info "Installing binary to system PATH..."
-    
-    # Use platform-sensitive install prefix
-    local install_bin_dir="$INSTALL_PREFIX/bin"
-    mkdir -p "$install_bin_dir"
-    
-    # Show progress for binary installation
-    local install_steps=("Installing binary" "Setting permissions")
-    local total_steps=${#install_steps[@]}
-    local current_step=0
-    local start_time=$(date +%s)
-    
-    # Step 1: Copy binary
-    current_step=$((current_step + 1))
-    show_progress_bar $current_step $total_steps "${install_steps[0]}" $start_time
-    
-    if cp "./z" "$install_bin_dir/z"; then
-        show_enhanced_progress $current_step $total_steps "${install_steps[0]}" "success" $start_time
-    else
-        show_enhanced_progress $current_step $total_steps "${install_steps[0]}" "failed" $start_time
-        print_error "Failed to install binary to system PATH"
-        exit 1
-    fi
-    
-    # Step 2: Set permissions
-    current_step=$((current_step + 1))
-    show_progress_bar $current_step $total_steps "${install_steps[1]}" $start_time
-    
-    chmod +x "$install_bin_dir/z"
-    show_enhanced_progress $current_step $total_steps "${install_steps[1]}" "success" $start_time
-    
-    print_status "Binary installed to $install_bin_dir/z"
-    
-    # Install lib directory with progress
-    if [ -d "./lib" ]; then
-        print_info "Installing library files..."
-        
-        # Show progress for library installation
-        local lib_steps=("Copying library files" "Setting permissions")
-        local lib_total=${#lib_steps[@]}
-        local lib_current=0
-        local lib_start_time=$(date +%s)
-        
-        # Step 1: Copy libraries
-        lib_current=$((lib_current + 1))
-        show_progress_bar $lib_current $lib_total "${lib_steps[0]}" $lib_start_time
-        
-        if cp -r "./lib" "$install_bin_dir/"; then
-            show_enhanced_progress $lib_current $lib_total "${lib_steps[0]}" "success" $lib_start_time
-        else
-            show_enhanced_progress $lib_current $lib_total "${lib_steps[0]}" "failed" $lib_start_time
-            print_error "Failed to install library files"
-            exit 1
-        fi
-        
-        # Step 2: Set permissions
-        lib_current=$((lib_current + 1))
-        show_progress_bar $lib_current $lib_total "${lib_steps[1]}" $lib_start_time
-        
-        chmod -R +x "$install_bin_dir/lib" 2>/dev/null || true
-        show_enhanced_progress $lib_current $lib_total "${lib_steps[1]}" "success" $lib_start_time
-        
-        print_status "Library files installed to $install_bin_dir/lib"
-    else
-        print_error "lib directory not found"
-        exit 1
-    fi
-
-    # Create basic configuration
-    create_default_config
-
-    print_status "Minimal installation complete!"
-    echo ""
-    echo "Note: This installation includes only core dependencies."
-    echo "For full functionality, run: $0"
-}
-
-# Adaptive installation
-install_adaptive() {
-    print_info "Starting adaptive installation..."
-    
-    # Run pre-flight checks
-    if ! preflight_checks; then
-        print_error "Pre-flight checks failed. Aborting installation."
-        exit 1
-    fi
-    echo ""
-
-    # Detect environment
-    if [ -f "./install/environment-detector.sh" ]; then
-        source ./install/environment-detector.sh
-        detect_environment
-        print_info "Environment detection complete"
-    else
-        print_warning "Environment detector not found, using standard installation"
-        install_standard
-        return
-    fi
-
-    # Determine best installation method based on environment
-    if [ "$OFFLINE" = "true" ]; then
-        print_info "Offline mode detected, using minimal installation"
-        install_minimal
-    else
-        print_info "Online mode detected, using standard installation"
-        install_standard
-    fi
-}
-
-# Single executable creation (PAR Packer)
-create_single_executable() {
-    print_info "Creating single executable (PAR Packer)..."
-    
-    if [ -f "./install/create-single-executable.sh" ]; then
-        source ./install/create-single-executable.sh
-        main  # Call the main function from create-single-executable.sh
-    else
-        print_error "Single executable creator not found"
-        exit 1
-    fi
-}
-
-# Static bundle creation
-create_static_bundle() {
-    print_info "Creating static bundle (self-contained)..."
-    
-    if [ -f "./install/create-bundle.sh" ]; then
-        source ./install/create-bundle.sh
-        # The create-bundle.sh script runs its main function automatically
-    else
-        print_error "Static bundle creator not found"
-        exit 1
-    fi
-}
-
-# Platform-specific bundle creation
-create_platform_bundles() {
-    print_info "Creating platform-specific bundles..."
-    
-    if [ -f "./install/create-platform-bundles.sh" ]; then
-        source ./install/create-platform-bundles.sh
-        main  # Call the main function from create-platform-bundles.sh
-    else
-        print_error "Platform bundle creator not found"
-        exit 1
-    fi
-}
-
-# Size-optimized bundle creation
-create_optimized_bundle() {
-    print_info "Creating size-optimized bundle..."
-    
-    if [ -f "./install/create-optimized-bundle.sh" ]; then
-        source ./install/create-optimized-bundle.sh
-        main  # Call the main function from create-optimized-bundle.sh
-    else
-        print_error "Optimized bundle creator not found"
-        exit 1
-    fi
+    echo "Note: You may need to restart your terminal for the 'z' command to be available."
 }
 
 # Repair installation
-repair_installation() {
-    print_info "Starting repair installation..."
+repair_main() {
+    print_info "Repairing ZChat installation..."
     
-    if [ -f "./install/repair-installation.sh" ]; then
-        source ./install/repair-installation.sh
-        main  # Call the main function from repair-installation.sh
+    detect_env
+    
+    if [ -f "$INSTALL_PREFIX/bin/z" ]; then
+        print_status "Binary found: $INSTALL_PREFIX/bin/z"
     else
-        print_error "Repair installer not found"
+        print_error "ZChat binary not found"
         exit 1
     fi
-}
-
-# Show API setup instructions
-show_api_setup_instructions() {
-    echo ""
-    echo -e "${YELLOW}LLM Server Configuration${NC}"
-    echo "ZChat needs an LLM server to work. Configure manually:"
-    echo ""
-    echo "For OpenAI API:"
-    echo -e "  ${LIGHT_BLUE}export OPENAI_BASE_URL=https://api.openai.com/v1${NC}"
-    echo -e "  ${LIGHT_BLUE}export OPENAI_API_KEY=your-key-here${NC}"
-    echo ""
-    echo "For local llama.cpp:"
-    echo -e "  ${LIGHT_BLUE}export LLAMA_URL=http://localhost:8080${NC}"
-    echo ""
-    echo "For Ollama:"
-    echo -e "  ${LIGHT_BLUE}export OLLAMA_BASE_URL=http://localhost:11434${NC}"
-    echo ""
+    
+    if [ -d "$CONFIG_DIR" ]; then
+        print_status "Config found: $CONFIG_DIR"
+    else
+        print_warning "Config directory not found, creating..."
+        mkdir -p "$CONFIG_DIR/system" "$CONFIG_DIR/sessions"
+    fi
+    
+    install_system_deps
+    install_perl_modules
+    
+    print_status "Repair completed!"
 }
 
 # Main execution
 main() {
-    echo -e "${BLUE}ZChat Unified Installer v0.9${NC}"
+    echo -e "${BLUE}ZChat Slim Installer v0.9${NC}"
     echo ""
-
-    # Check for existing installation (except for repair mode)
-    if [ "$INSTALL_MODE" != "repair" ]; then
-        check_existing_installation
-    fi
-
-    # Execute based on mode
+    
     case "$INSTALL_MODE" in
-        "standard")
-            install_standard
-            ;;
-        "minimal")
-            install_minimal
-            ;;
-        "adaptive")
-            install_adaptive
-            ;;
-        "single")
-            create_single_executable
-            ;;
-        "bundle")
-            create_static_bundle
-            ;;
-        "platform")
-            create_platform_bundles
-            ;;
-        "optimized")
-            create_optimized_bundle
-            ;;
-        "repair")
-            repair_installation
-            ;;
-        *)
-            print_error "Unknown installation mode: $INSTALL_MODE"
-            show_help
-            exit 1
-            ;;
+        "repair") repair_main ;;
+        *) install_main ;;
     esac
 }
 

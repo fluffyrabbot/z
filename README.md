@@ -34,26 +34,38 @@ Session/conversation management is treated as a first-class architectural concer
 ## Quick Start
 
 ### Installation
+
+**Linux/macOS/WSL2:**
 ```bash
 git clone https://github.com/yourusername/z
 cd z
 ./install.sh
 ```
 
+**Windows PowerShell:**
+```powershell
+git clone https://github.com/yourusername/z
+cd z
+.\install.ps1
+```
+
+**Windows (Double-click):**
+- Double-click `install.bat` for a GUI-friendly installation
+
 **Installation Options:**
-- `./install.sh` - Smart installation with environment detection (default)
-- `./install.sh --minimal` - Core dependencies only
-- `./install.sh --standard` - Standard installation with interactive prompts
-- `./install.sh --bundle` - Create static bundle (self-contained) [RECOMMENDED]
-- `./install.sh --single` - Create single executable (PAR Packer)
-- `./install.sh --platform` - Create platform-specific bundles
-- `./install.sh --optimized` - Create size-optimized bundle
-- `./install.sh --repair` - Repair existing installation
+- `./install.sh` / `.\install.ps1` - Smart installation with environment detection (default)
+- `./install.sh --minimal` / `.\install.ps1 -Minimal` - Core dependencies only
+- `./install.sh --standard` / `.\install.ps1 -Standard` - Standard installation with interactive prompts
+- `./install.sh --bundle` / `.\install.ps1 -Bundle` - Create static bundle (self-contained) [RECOMMENDED]
+- `./install.sh --single` / `.\install.ps1 -Single` - Create single executable (PAR Packer)
+- `./install.sh --platform` / `.\install.ps1 -Platform` - Create platform-specific bundles
+- `./install.sh --optimized` / `.\install.ps1 -Optimized` - Create size-optimized bundle
+- `./install.sh --repair` / `.\install.ps1 -Repair` - Repair existing installation
 
 **Installation Features:**
 - **Robust error handling** - Optional module failures don't break installation
 - **Cross-platform clipboard support** - Works in WSL2, Linux, macOS, and Windows
-- **Progress indicators** - Beautiful progress bars for all installation steps
+- **Progress indicators** - Progress bars for all installation steps
 - **Smart dependency management** - Distinguishes between required and optional modules
 - **System dependency installation** - Automatically installs xclip for clipboard support
 

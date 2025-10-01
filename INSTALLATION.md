@@ -21,19 +21,13 @@ The unified installer handles all installation scenarios with a single script.
 **Installation Features:**
 - **Robust error handling** - Optional module failures don't break installation
 - **Cross-platform clipboard support** - Works in WSL2, Linux, macOS, and Windows
-- **Progress indicators** - Beautiful progress bars for all installation steps
+- **Progress indicators** - Progress bars for all installation steps
 - **Smart dependency management** - Distinguishes between required and optional modules
 - **System dependency installation** - Automatically installs xclip for clipboard support
-- **Comprehensive uninstaller** - Handles all installation types with progress indicators
 
 **Installation Modes:**
-- `./install.sh` - Smart installation with environment detection (default)
-- `./install.sh --minimal` - Quick installation with core dependencies only
-- `./install.sh --standard` - Standard installation with interactive prompts
-- `./install.sh --single` - Create single executable (PAR Packer)
-- `./install.sh --bundle` - Create static bundle (self-contained) [RECOMMENDED]
-- `./install.sh --platform` - Create platform-specific bundles  
-- `./install.sh --optimized` - Create size-optimized bundle
+- `./install.sh` - Standard installation (default)
+- `./install.sh --minimal` - Core dependencies only
 - `./install.sh --repair` - Repair existing installation
 
 **Options:**
@@ -72,24 +66,24 @@ The unified installer handles all installation scenarios with a single script.
 **Usage:** `./install.sh --bundle` or `./install/create-bundle.sh [--verbose]`  
 **Best for:** Reliable, portable distributions
 
-- ✅ Creates a directory with all dependencies bundled locally
-- ✅ No external CPAN dependencies required
-- ✅ Works offline after creation
-- ✅ More reliable across different systems
-- ✅ No compilation required
-- ✅ Recommended for most users
+- Creates a directory with all dependencies bundled locally
+- No external CPAN dependencies required
+- Works offline after creation
+- More reliable across different systems
+- No compilation required
+- Recommended for most users
 
 #### Option B: Single Executable (`--single`)
 **File:** `install/create-single-executable.sh`  
 **Usage:** `./install.sh --single` or `./install/create-single-executable.sh`  
 **Best for:** True single-file distribution (advanced users)
 
-- ⚠️ Creates a single binary file using PAR Packer
-- ⚠️ Requires PAR::Packer installation and compilation
-- ⚠️ May need system build dependencies (gcc, perl-dev)
-- ⚠️ Can fail in WSL, containers, or minimal environments
-- ✅ Best for distribution as a single file
-- 💡 **Tip:** Use `--bundle` instead for better reliability
+- Creates a single binary file using PAR Packer
+- Requires PAR::Packer installation and compilation
+- May need system build dependencies (gcc, perl-dev)
+- Can fail in WSL, containers, or minimal environments
+- Best for distribution as a single file
+- **Tip:** Use `--bundle` instead for better reliability
 
 **File:** `install/create-platform-bundles.sh`  
 **Usage:** `./install/create-platform-bundles.sh [platform] [arch]`  
