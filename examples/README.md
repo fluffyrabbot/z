@@ -41,13 +41,16 @@ For more information, see:
 - [INSTALLATION.md](../INSTALLATION.md) - Quick start guide
 ### Pin Examples
 ```bash
-# Load example pins individually (--pins-file currently has a bug)
+
+### Pin Examples
+```bash
+# Load example pins from file
+z --pins-file examples/pin-examples.json
+z --pins-list  # See what was loaded
+
+# Or load individual pins
 z --pin "You are an expert Perl developer with 20 years experience."
 z --pin-user "Assume all code examples use modern Perl practices: signatures, postderef, strict, warnings."
 z --pin-ast "I will provide code examples with proper error handling and modern Perl syntax."
 z --pins-list  # See what was loaded
 ```
-
-### Known Issues
-- `--pins-file` option currently has a bug (missing `load_pipes_file` function)
-- Use individual pin commands instead of pin files for now

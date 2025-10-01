@@ -44,6 +44,9 @@ our @EXPORT_OK = qw(
 	$a_stat_exists
 	$a_stat_undeftag
 	file_create_secure
+	load_pipes_file
+	load_pins_json
+	load_pins_pipes
 );
 our %EXPORT_TAGS = (
     all => \@EXPORT_OK,
@@ -410,3 +413,91 @@ sub show_help_file($f) {
 }
 
 1;
+
+# Load pins from file (supports both pipes format and JSON)
+sub load_pipes_file($filepath) {
+    return [] unless -e $filepath && -r $filepath;
+    
+    my $content = read_text($filepath);
+    return [] unless defined $content;
+    
+    # Auto-detect format: JSON if starts with [ or {, otherwise pipes
+    if ($content =~ /^\s*[\[\{]/) {
+        return load_pins_json($content);
+    } else {
+        return load_pins_pipes($content);
+    }
+}
+
+# Load pins from JSON format
+sub load_pins_json($content) {
+    my $data = eval { decode_json($content) };
+    if ($@) {
+        warn "Failed to parse JSON pin file: $@";
+        return [];
+    }
+    
+    return [] unless ref($data) eq 'ARRAY';
+    
+    my @items;
+    for my $item (@$data) {
+        if (ref($item) eq 'HASH') {
+            if (exists $item->{role} && exists $item->{content}) {
+                # Standard format: {role, content, method}
+                push @items, {
+                    role => $item->{role},
+                    content => $item->{content},
+                    method => $item->{method} // 'msg'
+                };
+            } elsif (exists $item->{user} || exists $item->{assistant}) {
+                # Paired format: {user, assistant}
+                push @items, {
+                    user => $item->{user} // '',
+                    assistant => $item->{assistant} // ''
+                };
+            }
+        }
+    }
+    
+    return \@items;
+}
+
+# Load pins from pipes format
+sub load_pins_pipes($content) {
+    my @items;
+    my @lines = split /\r?\n/, $content;
+    
+    for my $line (@lines) {
+        $line =~ s/^\s+|\s+$//g;  # trim whitespace
+        next if $line eq '' || $line =~ /^#/;  # skip empty lines and comments
+        
+        if ($line =~ /\|\|\|/) {
+            # Paired format: user|||assistant
+            my ($user, $assistant) = split /\|\|\|/, $line, 2;
+            $user =~ s/\\\|/\|/g;  # unescape pipes
+            $user =~ s/\\\\/\\/g;  # unescape backslashes
+            $user =~ s/\\n/\n/g;   # unescape newlines
+            $assistant =~ s/\\\|/\|/g;
+            $assistant =~ s/\\\\/\\/g;
+            $assistant =~ s/\\n/\n/g;
+            
+            push @items, {
+                user => $user,
+                assistant => $assistant
+            };
+        } else {
+            # Single field creates a user pin
+            $line =~ s/\\\|/\|/g;  # unescape pipes
+            $line =~ s/\\\\/\\/g;  # unescape backslashes
+            $line =~ s/\\n/\n/g;   # unescape newlines
+            
+            push @items, {
+                user => $line,
+                assistant => ''
+            };
+        }
+    }
+    
+    return \@items;
+}
+
