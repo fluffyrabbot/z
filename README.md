@@ -53,14 +53,10 @@ cd z
 - Double-click `install.bat` for a GUI-friendly installation
 
 **Installation Options:**
-- `./install.sh` / `.\install.ps1` - Smart installation with environment detection (default)
+- `./install.sh` / `.\install.ps1` - Standard installation (default)
 - `./install.sh --minimal` / `.\install.ps1 -Minimal` - Core dependencies only
-- `./install.sh --standard` / `.\install.ps1 -Standard` - Standard installation with interactive prompts
-- `./install.sh --bundle` / `.\install.ps1 -Bundle` - Create static bundle (self-contained) [RECOMMENDED]
-- `./install.sh --single` / `.\install.ps1 -Single` - Create single executable (PAR Packer)
-- `./install.sh --platform` / `.\install.ps1 -Platform` - Create platform-specific bundles
-- `./install.sh --optimized` / `.\install.ps1 -Optimized` - Create size-optimized bundle
 - `./install.sh --repair` / `.\install.ps1 -Repair` - Repair existing installation
+- `./install.sh --onboarding` / `.\install.ps1 -Onboarding` - Run interactive tutorial
 
 **Installation Features:**
 - **Robust error handling** - Optional module failures don't break installation

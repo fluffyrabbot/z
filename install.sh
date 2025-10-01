@@ -30,16 +30,13 @@ while [[ $# -gt 0 ]]; do
         --offline|-o) OFFLINE=true; shift ;;
         --minimal) INSTALL_MODE="minimal"; shift ;;
         --standard) INSTALL_MODE="standard"; shift ;;
-        --bundle) INSTALL_MODE="bundle"; shift ;;
-        --single) INSTALL_MODE="single"; shift ;;
-        --platform) INSTALL_MODE="platform"; shift ;;
-        --optimized) INSTALL_MODE="optimized"; shift ;;
         --repair) INSTALL_MODE="repair"; shift ;;
+        --onboarding) INSTALL_MODE="onboarding"; shift ;;
         --help|-h) 
             echo "ZChat Slim Installer v0.9"
             echo "Usage: $0 [OPTIONS]"
             echo ""
-            echo "Modes: --minimal, --standard, --bundle, --single, --platform, --optimized, --repair"
+            echo "Modes: --minimal, --standard, --repair, --onboarding"
             echo "Options: --verbose, --force, --offline, --help"
             exit 0 
             ;;
@@ -115,27 +112,72 @@ check_existing() {
     fi
 }
 
+# Detect clipboard environment
+detect_clipboard_env() {
+    if [ -n "${WAYLAND_DISPLAY:-}" ]; then
+        CLIPBOARD_TOOL="wl-paste"
+        CLIPBOARD_INSTALL="wl-clipboard"
+    elif [ -n "${DISPLAY:-}" ]; then
+        CLIPBOARD_TOOL="xclip"
+        CLIPBOARD_INSTALL="xclip"
+    elif [ -n "${WSL_DISTRO_NAME:-}" ] || [ -n "${WSLENV:-}" ]; then
+        CLIPBOARD_TOOL="xclip"
+        CLIPBOARD_INSTALL="xclip"
+    elif [ "$OS_TYPE" = "macos" ]; then
+        CLIPBOARD_TOOL="pbpaste"
+        CLIPBOARD_INSTALL="builtin"
+    elif [ "$OS_TYPE" = "windows" ]; then
+        CLIPBOARD_TOOL="powershell"
+        CLIPBOARD_INSTALL="builtin"
+    else
+        CLIPBOARD_TOOL="xclip"
+        CLIPBOARD_INSTALL="xclip"
+    fi
+}
+
 # Install system dependencies
 install_system_deps() {
     print_info "Installing system dependencies..."
+    
+    detect_clipboard_env
     
     case "$OS_TYPE" in
         "linux")
             if command -v apt-get >/dev/null 2>&1; then
                 sudo apt-get update -qq
-                sudo apt-get install -y build-essential libssl-dev curl wget xclip
+                local packages="build-essential libssl-dev curl wget pkg-config libreadline-dev libncurses-dev zlib1g-dev"
+                if [ "$CLIPBOARD_INSTALL" != "builtin" ]; then
+                    packages="$packages $CLIPBOARD_INSTALL"
+                fi
+                sudo apt-get install -y $packages
             elif command -v yum >/dev/null 2>&1; then
-                sudo yum install -y gcc openssl-devel curl wget xclip
+                sudo yum install -y gcc openssl-devel curl wget pkgconfig readline-devel ncurses-devel zlib-devel
+                if [ "$CLIPBOARD_INSTALL" != "builtin" ]; then
+                    sudo yum install -y $CLIPBOARD_INSTALL
+                fi
             elif command -v pacman >/dev/null 2>&1; then
-                sudo pacman -S --noconfirm base-devel openssl curl wget xclip
+                sudo pacman -S --noconfirm base-devel openssl curl wget pkg-config readline ncurses zlib
+                if [ "$CLIPBOARD_INSTALL" != "builtin" ]; then
+                    sudo pacman -S --noconfirm $CLIPBOARD_INSTALL
+                fi
             fi
             ;;
         "macos")
             if command -v brew >/dev/null 2>&1; then
-                brew install openssl curl wget
+                brew install openssl curl wget readline
+            fi
+            ;;
+        "windows")
+            if command -v choco >/dev/null 2>&1; then
+                choco install -y curl wget
+            elif command -v winget >/dev/null 2>&1; then
+                winget install -e --id Microsoft.Curl
+                winget install -e --id Microsoft.Wget
             fi
             ;;
     esac
+    
+    print_status "Clipboard tool: $CLIPBOARD_TOOL"
 }
 
 # Install Perl modules
@@ -227,6 +269,28 @@ configure_shell() {
     fi
 }
 
+# Run API onboarding
+run_api_onboarding() {
+    print_info "Running API onboarding..."
+    
+    if [ -f "./onboarding.pl" ]; then
+        if perl -c "./onboarding.pl" 2>/dev/null; then
+            echo ""
+            echo "Would you like to run the interactive onboarding tutorial? (y/N)"
+            read -r response
+            if [[ "$response" =~ ^[Yy]$ ]]; then
+                perl "./onboarding.pl"
+            else
+                print_info "Skipping onboarding. You can run it later with: perl onboarding.pl"
+            fi
+        else
+            print_warning "Onboarding script has syntax errors, skipping"
+        fi
+    else
+        print_warning "Onboarding script not found, skipping"
+    fi
+}
+
 # Main installation
 install_main() {
     print_info "Starting ZChat installation..."
@@ -237,6 +301,7 @@ install_main() {
     install_perl_modules
     install_zchat
     configure_shell
+    run_api_onboarding
     
     print_status "Installation completed!"
     echo ""
@@ -244,6 +309,7 @@ install_main() {
     echo "  z --help                    # Show help"
     echo "  z \"Hello, world!\"          # Chat with AI"
     echo "  z --config                  # Configure API key"
+    echo "  perl onboarding.pl          # Run interactive tutorial"
     echo ""
     echo "Note: You may need to restart your terminal for the 'z' command to be available."
 }
@@ -274,6 +340,23 @@ repair_main() {
     print_status "Repair completed!"
 }
 
+# Onboarding only
+onboarding_main() {
+    print_info "Running ZChat onboarding tutorial..."
+    
+    if [ -f "./onboarding.pl" ]; then
+        if perl -c "./onboarding.pl" 2>/dev/null; then
+            perl "./onboarding.pl"
+        else
+            print_error "Onboarding script has syntax errors"
+            exit 1
+        fi
+    else
+        print_error "Onboarding script not found"
+        exit 1
+    fi
+}
+
 # Main execution
 main() {
     echo -e "${BLUE}ZChat Slim Installer v0.9${NC}"
@@ -281,6 +364,7 @@ main() {
     
     case "$INSTALL_MODE" in
         "repair") repair_main ;;
+        "onboarding") onboarding_main ;;
         *) install_main ;;
     esac
 }

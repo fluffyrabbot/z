@@ -50,9 +50,9 @@ sub check_dependencies() {
     my $perl_version = $^V;
     say "Perl version: $perl_version";
     if ($perl_version ge v5.26.3) {
-        say "$successOK: Perl version acceptable$rst";
+        say "${success}OK: Perl version acceptable${rst}";
     } else {
-        say "$errorERROR: Perl 5.26.3+ required$rst";
+        say "${error}ERROR: Perl 5.26.3+ required${rst}";
         exit 1;
     }
     say "";
@@ -64,21 +64,21 @@ sub check_dependencies() {
     
     for my $mod (@modules) {
         if (eval "use $mod; 1") {
-            say "$successOK: $mod$rst";
+            say "${success}OK: $mod${rst}";
         } else {
-            say "$errorERROR: $mod$rst";
+            say "${error}ERROR: $mod${rst}";
             $all_good = 0;
         }
     }
     
     if (!$all_good) {
         say "";
-        say "$errorMissing modules detected. Please run the installation script first.$rst";
+        say "${error}Missing modules detected. Please run the installation script first.${rst}";
         exit 1;
     }
     
     say "";
-    say "$successAll dependencies satisfied!$rst";
+    say "${success}All dependencies satisfied!${rst}";
     wait_for_user();
 }
 
@@ -376,7 +376,7 @@ sub show_next_steps() {
     );
     
     say "";
-    say "$successYou're ready to use ZChat!$rst";
+    say "${success}You're ready to use ZChat!${rst}";
     say "";
     say "Remember: ZChat is designed for freedom and consistency.";
     say "You can work from whatever language you want, be it Bash, Python, Perl, or anything else.";

@@ -23,12 +23,13 @@ The unified installer handles all installation scenarios with a single script.
 - **Cross-platform clipboard support** - Works in WSL2, Linux, macOS, and Windows
 - **Progress indicators** - Progress bars for all installation steps
 - **Smart dependency management** - Distinguishes between required and optional modules
-- **System dependency installation** - Automatically installs xclip for clipboard support
+- **Platform-specific dependencies** - Automatically detects and installs clipboard tools and build dependencies
 
 **Installation Modes:**
 - `./install.sh` - Standard installation (default)
 - `./install.sh --minimal` - Core dependencies only
 - `./install.sh --repair` - Repair existing installation
+- `./install.sh --onboarding` - Run interactive tutorial
 
 **Options:**
 - `--verbose, -v` - Verbose output
