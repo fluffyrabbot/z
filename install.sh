@@ -163,7 +163,7 @@ check_existing_installation() {
     
     # Check for installed binary in standard locations
     local binary_installed=false
-    if [ -f "$HOME/.local/bin/z" ] || [ -f "$HOME/.local/bin/zchat" ]; then
+    if [ -f "$install_bin_dir/z" ] || [ -f "$install_bin_dir/zchat" ]; then
         binary_installed=true
     fi
     
@@ -201,6 +201,18 @@ check_existing_installation() {
 # Standard installation
 install_standard() {
     print_info "Starting standard installation..."
+    
+    # Detect environment for platform-sensitive paths
+    if [ -f "./install/environment-detector.sh" ]; then
+        source ./install/environment-detector.sh
+        detect_environment
+        print_info "Environment detection complete"
+    else
+        print_warning "Environment detector not found, using default paths"
+        # Set default paths if environment detection fails
+        INSTALL_PREFIX="$HOME/.local"
+    fi
+    echo ""
     
     # Run pre-flight checks
     if ! preflight_checks; then
@@ -240,7 +252,7 @@ install_standard() {
 
     # Install binary to system PATH with progress
     print_info "Installing binary to system PATH..."
-    mkdir -p "$HOME/.local/bin"
+    mkdir -p "$install_bin_dir"
     
     # Show progress for binary installation
     local install_steps=("Installing binary" "Setting permissions")
@@ -252,7 +264,7 @@ install_standard() {
     current_step=$((current_step + 1))
     show_progress_bar $current_step $total_steps "${install_steps[0]}" $start_time
     
-    if cp "./z" "$HOME/.local/bin/z"; then
+    if cp "./z" "$install_bin_dir/z"; then
         show_enhanced_progress $current_step $total_steps "${install_steps[0]}" "success" $start_time
     else
         show_enhanced_progress $current_step $total_steps "${install_steps[0]}" "failed" $start_time
@@ -264,10 +276,10 @@ install_standard() {
     current_step=$((current_step + 1))
     show_progress_bar $current_step $total_steps "${install_steps[1]}" $start_time
     
-    chmod +x "$HOME/.local/bin/z"
+    chmod +x "$install_bin_dir/z"
     show_enhanced_progress $current_step $total_steps "${install_steps[1]}" "success" $start_time
     
-    print_status "Binary installed to $HOME/.local/bin/z"
+    print_status "Binary installed to $install_bin_dir/z"
     
     # Install lib directory with progress
     if [ -d "./lib" ]; then
@@ -283,7 +295,7 @@ install_standard() {
         lib_current=$((lib_current + 1))
         show_progress_bar $lib_current $lib_total "${lib_steps[0]}" $lib_start_time
         
-        if cp -r "./lib" "$HOME/.local/bin/"; then
+        if cp -r "./lib" "$install_bin_dir/"; then
             show_enhanced_progress $lib_current $lib_total "${lib_steps[0]}" "success" $lib_start_time
         else
             show_enhanced_progress $lib_current $lib_total "${lib_steps[0]}" "failed" $lib_start_time
@@ -295,10 +307,10 @@ install_standard() {
         lib_current=$((lib_current + 1))
         show_progress_bar $lib_current $lib_total "${lib_steps[1]}" $lib_start_time
         
-        chmod -R +x "$HOME/.local/bin/lib" 2>/dev/null || true
+        chmod -R +x "$install_bin_dir/lib" 2>/dev/null || true
         show_enhanced_progress $lib_current $lib_total "${lib_steps[1]}" "success" $lib_start_time
         
-        print_status "Library files installed to $HOME/.local/bin/lib"
+        print_status "Library files installed to $install_bin_dir/lib"
     else
         print_error "lib directory not found"
         exit 1
@@ -340,6 +352,18 @@ install_standard() {
 install_minimal() {
     print_info "Starting minimal installation..."
     
+    # Detect environment for platform-sensitive paths
+    if [ -f "./install/environment-detector.sh" ]; then
+        source ./install/environment-detector.sh
+        detect_environment
+        print_info "Environment detection complete"
+    else
+        print_warning "Environment detector not found, using default paths"
+        # Set default paths if environment detection fails
+        INSTALL_PREFIX="$HOME/.local"
+    fi
+    echo ""
+    
     # Run pre-flight checks
     if ! preflight_checks; then
         print_error "Pre-flight checks failed. Aborting installation."
@@ -365,7 +389,10 @@ install_minimal() {
 
     # Install binary to system PATH with progress
     print_info "Installing binary to system PATH..."
-    mkdir -p "$HOME/.local/bin"
+    
+    # Use platform-sensitive install prefix
+    local install_bin_dir="$INSTALL_PREFIX/bin"
+    mkdir -p "$install_bin_dir"
     
     # Show progress for binary installation
     local install_steps=("Installing binary" "Setting permissions")
@@ -377,7 +404,7 @@ install_minimal() {
     current_step=$((current_step + 1))
     show_progress_bar $current_step $total_steps "${install_steps[0]}" $start_time
     
-    if cp "./z" "$HOME/.local/bin/z"; then
+    if cp "./z" "$install_bin_dir/z"; then
         show_enhanced_progress $current_step $total_steps "${install_steps[0]}" "success" $start_time
     else
         show_enhanced_progress $current_step $total_steps "${install_steps[0]}" "failed" $start_time
@@ -389,10 +416,10 @@ install_minimal() {
     current_step=$((current_step + 1))
     show_progress_bar $current_step $total_steps "${install_steps[1]}" $start_time
     
-    chmod +x "$HOME/.local/bin/z"
+    chmod +x "$install_bin_dir/z"
     show_enhanced_progress $current_step $total_steps "${install_steps[1]}" "success" $start_time
     
-    print_status "Binary installed to $HOME/.local/bin/z"
+    print_status "Binary installed to $install_bin_dir/z"
     
     # Install lib directory with progress
     if [ -d "./lib" ]; then
@@ -408,7 +435,7 @@ install_minimal() {
         lib_current=$((lib_current + 1))
         show_progress_bar $lib_current $lib_total "${lib_steps[0]}" $lib_start_time
         
-        if cp -r "./lib" "$HOME/.local/bin/"; then
+        if cp -r "./lib" "$install_bin_dir/"; then
             show_enhanced_progress $lib_current $lib_total "${lib_steps[0]}" "success" $lib_start_time
         else
             show_enhanced_progress $lib_current $lib_total "${lib_steps[0]}" "failed" $lib_start_time
@@ -420,10 +447,10 @@ install_minimal() {
         lib_current=$((lib_current + 1))
         show_progress_bar $lib_current $lib_total "${lib_steps[1]}" $lib_start_time
         
-        chmod -R +x "$HOME/.local/bin/lib" 2>/dev/null || true
+        chmod -R +x "$install_bin_dir/lib" 2>/dev/null || true
         show_enhanced_progress $lib_current $lib_total "${lib_steps[1]}" "success" $lib_start_time
         
-        print_status "Library files installed to $HOME/.local/bin/lib"
+        print_status "Library files installed to $install_bin_dir/lib"
     else
         print_error "lib directory not found"
         exit 1

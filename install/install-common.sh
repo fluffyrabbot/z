@@ -423,6 +423,18 @@ create_default_config() {
     # Create initial configuration
     print_info "Setting up initial configuration..."
     
+    # Determine platform-sensitive config directory
+    local config_dir
+    if [ -n "$XDG_CONFIG_HOME" ]; then
+        config_dir="$XDG_CONFIG_HOME/zchat"
+    elif [ "$OS_TYPE" = "windows" ]; then
+        config_dir="${APPDATA:-$HOME/AppData/Roaming}/zchat"
+    elif [ "$OS_TYPE" = "macos" ]; then
+        config_dir="$HOME/Library/Application Support/zchat"
+    else
+        config_dir="$HOME/.config/zchat"
+    fi
+    
     # Define configuration steps
     local config_steps=(
         "Creating system directories"
@@ -439,15 +451,15 @@ create_default_config() {
     current_step=$((current_step + 1))
     show_progress_bar $current_step $total_steps "${config_steps[0]}" $start_time
     
-    mkdir -p ~/.config/zchat/system
-    mkdir -p ~/.config/zchat/sessions
+    mkdir -p "$config_dir/system"
+    mkdir -p "$config_dir/sessions"
     show_enhanced_progress $current_step $total_steps "${config_steps[0]}" "success" $start_time
 
     # Step 2: Create default system prompt
     current_step=$((current_step + 1))
     show_progress_bar $current_step $total_steps "${config_steps[1]}" $start_time
     
-    cat > ~/.config/zchat/system/default << 'EOF'
+    cat > "$config_dir/system/default" << 'EOF'
 You are a helpful AI assistant. You provide clear, concise, and accurate responses.
 
 You understand that this is a command-line interface, so you should:
@@ -462,8 +474,8 @@ EOF
     current_step=$((current_step + 1))
     show_progress_bar $current_step $total_steps "${config_steps[2]}" $start_time
     
-    if [ ! -f ~/.config/zchat/user.yaml ]; then
-        cat > ~/.config/zchat/user.yaml << 'EOF'
+    if [ ! -f "$config_dir/user.yaml" ]; then
+        cat > "$config_dir/user.yaml" << 'EOF'
 # ZChat User Configuration
 # This file stores your global preferences
 
@@ -488,8 +500,8 @@ EOF
     current_step=$((current_step + 1))
     show_progress_bar $current_step $total_steps "${config_steps[3]}" $start_time
     
-    mkdir -p ~/.config/zchat/sessions/default
-    cat > ~/.config/zchat/sessions/default/session.yaml << 'EOF'
+    mkdir -p "$config_dir/sessions/default"
+    cat > "$config_dir/sessions/default/session.yaml" << 'EOF'
 created: 1703123456
 # Session-specific settings go here
 EOF

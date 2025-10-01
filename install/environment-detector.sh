@@ -114,7 +114,7 @@ detect_wsl() {
 
 # Detect container environment
 detect_container() {
-    if [ -f /.dockerenv ] || [ -n "$KUBERNETES_SERVICE_HOST" ] || [ -n "$CONTAINER" ]; then
+    if [ -f /.dockerenv ] || [ -n "${KUBERNETES_SERVICE_HOST:-}" ] || [ -n "${CONTAINER:-}" ]; then
         IS_CONTAINER="true"
         print_info "Container environment detected"
     else
