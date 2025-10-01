@@ -104,24 +104,38 @@ main() {
     ZCHAT_CONFIG_DIR="$HOME/.config/zchat"
     ZCHAT_BIN_DIR="$HOME/.local/bin"
 
+    # Check for system installation (installed to user directories)
+    local system_installed=false
     if [ -f "$ZCHAT_CONFIG_DIR/user.yaml" ]; then
-        ZCHAT_INSTALLED=true
-        print_info "Existing ZChat installation detected"
+        system_installed=true
+        print_info "ZChat configuration found"
     fi
 
+    # Check for installed binary in standard locations
+    local binary_installed=false
     if [ -f "$ZCHAT_BIN_DIR/z" ] || [ -f "$ZCHAT_BIN_DIR/zchat" ]; then
-        ZCHAT_INSTALLED=true
+        binary_installed=true
         print_info "ZChat binary found in $ZCHAT_BIN_DIR"
     fi
 
-    if [ -f "./z" ]; then
-        ZCHAT_INSTALLED=true
-        print_info "ZChat binary found in current directory"
+    # Check for binary in system PATH (but not source file)
+    local binary_in_path=false
+    if command -v z >/dev/null 2>&1; then
+        local z_path=$(command -v z)
+        # Only consider it installed if it's not the source file
+        if [ "$z_path" != "$(pwd)/z" ] && [ "$z_path" != "./z" ]; then
+            binary_in_path=true
+            print_info "ZChat command found in PATH: $z_path"
+        fi
     fi
 
-    if command -v z >/dev/null 2>&1; then
+    # Only consider it a system installation if it's actually installed, not just source
+    if [ "$system_installed" = true ] || [ "$binary_in_path" = true ] || [ "$binary_installed" = true ]; then
         ZCHAT_INSTALLED=true
-        print_info "ZChat command found in PATH"
+        print_info "Existing ZChat installation detected"
+    elif [ -f "./z" ]; then
+        print_info "ZChat source found in current directory (not installed)"
+        print_info "Run ./install.sh to install ZChat"
     fi
 
     if [ "$ZCHAT_INSTALLED" = true ]; then
@@ -445,6 +459,32 @@ clean_uninstall() {
     print_info "Removing ZChat binaries..."
     rm -f "$ZCHAT_BIN_DIR/z"
     rm -f "$ZCHAT_BIN_DIR/zchat"
+    
+    # Check for and remove PATH entries
+    print_info "Checking PATH configuration..."
+    local shell_config=""
+    case "$SHELL" in
+        */bash)
+            shell_config="$HOME/.bashrc"
+            ;;
+        */zsh)
+            shell_config="$HOME/.zshrc"
+            ;;
+        */fish)
+            shell_config="$HOME/.config/fish/config.fish"
+            ;;
+        *)
+            shell_config="$HOME/.profile"
+            ;;
+    esac
+    
+    if [ -f "$shell_config" ]; then
+        # Check if PATH contains ZChat bin directory
+        if grep -q "$ZCHAT_BIN_DIR" "$shell_config" 2>/dev/null; then
+            print_warning "Found PATH entry in $shell_config"
+            print_warning "You may need to manually remove: export PATH=\"\$HOME/.local/bin:\$PATH\""
+        fi
+    fi
     
     # Remove configuration
     print_info "Removing configuration..."

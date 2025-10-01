@@ -135,7 +135,30 @@ done
 
 # Check for existing installation
 check_existing_installation() {
-    if [ -f "$HOME/.config/zchat/user.yaml" ] || [ -f "./z" ] || command -v z >/dev/null 2>&1; then
+    # Check for system installation (installed to user directories)
+    local system_installed=false
+    if [ -f "$HOME/.config/zchat/user.yaml" ]; then
+        system_installed=true
+    fi
+    
+    # Check for binary in system PATH
+    local binary_in_path=false
+    if command -v z >/dev/null 2>&1; then
+        local z_path=$(command -v z)
+        # Only consider it installed if it's not the source file
+        if [ "$z_path" != "$(pwd)/z" ] && [ "$z_path" != "./z" ]; then
+            binary_in_path=true
+        fi
+    fi
+    
+    # Check for installed binary in standard locations
+    local binary_installed=false
+    if [ -f "$HOME/.local/bin/z" ] || [ -f "$HOME/.local/bin/zchat" ]; then
+        binary_installed=true
+    fi
+    
+    # Only consider it a system installation if it's actually installed, not just source
+    if [ "$system_installed" = true ] || [ "$binary_in_path" = true ] || [ "$binary_installed" = true ]; then
         if [ "$FORCE" = "true" ]; then
             print_warning "Force flag detected - proceeding with fresh installation..."
             echo ""
