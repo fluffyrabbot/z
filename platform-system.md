@@ -1,8 +1,8 @@
 # ZChat Platform System
 
-ZChat automatically detects your platform and environment to provide the best possible experience. This document explains how the platform system works and what it means for you.
+The ZChat installer automatically detects your platform and environment, then installs dependencies and configures paths accordingly to provide the best possible experience. This document explains how the platform system works and what it means for you.
 
-## 🖥️ **Supported Platforms**
+## Supported Platforms
 
 ZChat works seamlessly across:
 
@@ -12,7 +12,7 @@ ZChat works seamlessly across:
 - **FreeBSD**
 - **Docker containers** and cloud environments
 
-## 🔍 **Automatic Detection**
+## Automatic Detection
 
 When you install ZChat, it automatically detects:
 
@@ -40,7 +40,7 @@ When you install ZChat, it automatically detects:
 - Terminal emulator type
 - Remote terminal detection (SSH, etc.)
 
-## 🛠️ **Automatic Installation**
+## Automatic Installation
 
 Based on what ZChat detects, it automatically installs:
 
@@ -61,7 +61,7 @@ Based on what ZChat detects, it automatically installs:
 - Terminal libraries for interactive features
 - Development headers for Perl modules
 
-## 📋 **Dependency Management**
+## Dependency Management
 
 ZChat categorizes dependencies into three types:
 
@@ -85,7 +85,7 @@ These are automatically installed based on your platform:
 - Build tools
 - Development libraries
 
-## 🎯 **Platform-Specific Features**
+## Platform-Specific Features
 
 ### **WSL2 Users**
 - Automatic X11 clipboard detection
@@ -110,7 +110,7 @@ These are automatically installed based on your platform:
 - WSL2 compatibility
 - Windows Terminal support
 
-## 🔧 **Manual Override**
+## Manual Override
 
 If automatic detection doesn't work perfectly, you can:
 
@@ -150,7 +150,7 @@ sudo pacman -S xclip base-devel
 ./install.sh --repair
 ```
 
-## 🚨 **Troubleshooting**
+## Troubleshooting
 
 ### **Clipboard Not Working**
 - **WSL2**: Ensure WSLg is enabled and `xclip` is installed
@@ -168,18 +168,7 @@ sudo pacman -S xclip base-devel
 - **Size detection**: Verify `tput` is available
 - **Remote terminals**: May have limited capabilities
 
-## 📊 **Platform Status**
-
-| Platform | Clipboard | Terminal | Build | Status |
-|----------|-----------|----------|-------|---------|
-| WSL2 | ✅ | ✅ | ✅ | Fully Supported |
-| Linux | ✅ | ✅ | ✅ | Fully Supported |
-| macOS | ✅ | ✅ | ✅ | Fully Supported |
-| Windows | ✅ | ✅ | ✅ | Fully Supported |
-| FreeBSD | ✅ | ✅ | ✅ | Fully Supported |
-| Containers | ✅ | ✅ | ✅ | Fully Supported |
-
-## 🎉 **Benefits**
+## Benefits
 
 The platform system provides:
 
@@ -189,7 +178,7 @@ The platform system provides:
 - **Clear Feedback**: Detailed reports and recommendations
 - **Easy Troubleshooting**: Platform-specific guidance
 
-## 📚 **Learn More**
+## Learn More
 
 - [Installation Guide](INSTALLATION.md) - Detailed installation instructions
 - [Dependencies](DEPENDENCIES.md) - Complete dependency information
