@@ -88,7 +88,7 @@ binmode *STDIN, "raw";
 binmode *STDOUT, "utf8";
 binmode *STDERR, "utf8";
 
-my $user = `whoami`; chomp $user;
+my $user = $ENV{USER} // $ENV{LOGNAME} // getpwuid($<) // 'unknown';
 my $def_npredict = 8192;
 my $def_pin_max = 50;
 my @cmd_tts = ("voice-piper-interactive");
@@ -913,7 +913,7 @@ if ($opt->edit_hist) {
     my $session_dir = $zchat->{storage}->get_session_dir($session_name);
     my $history_file = File::Spec->catfile($session_dir, 'history.json');
     
-    system($editor, '--', $history_file);
+    system($editor, '--', $history_file) == 0 or die "Editor failed: $!";
     sel 0, "Exiting after editing.";
     exit;
 }

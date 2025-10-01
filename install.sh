@@ -149,16 +149,16 @@ install_system_deps() {
                 if [ "$CLIPBOARD_INSTALL" != "builtin" ]; then
                     packages="$packages $CLIPBOARD_INSTALL"
                 fi
-                sudo apt-get install -y $packages
+                sudo apt-get install -y -- $packages
             elif command -v yum >/dev/null 2>&1; then
                 sudo yum install -y gcc openssl-devel curl wget pkgconfig readline-devel ncurses-devel zlib-devel
                 if [ "$CLIPBOARD_INSTALL" != "builtin" ]; then
-                    sudo yum install -y $CLIPBOARD_INSTALL
+                    sudo yum install -y -- $CLIPBOARD_INSTALL
                 fi
             elif command -v pacman >/dev/null 2>&1; then
                 sudo pacman -S --noconfirm base-devel openssl curl wget pkg-config readline ncurses zlib
                 if [ "$CLIPBOARD_INSTALL" != "builtin" ]; then
-                    sudo pacman -S --noconfirm $CLIPBOARD_INSTALL
+                    sudo pacman -S --noconfirm -- $CLIPBOARD_INSTALL
                 fi
             fi
             ;;
