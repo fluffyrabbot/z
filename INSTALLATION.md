@@ -22,7 +22,9 @@ The unified installer handles all installation scenarios with a single script.
 - `./install.sh` - Standard installation (default)
 - `./install.sh --minimal` - Quick installation with core dependencies only
 - `./install.sh --adaptive` - Smart installation with environment detection
-- `./install.sh --bundle` - Create self-contained bundle
+- `./install.sh --single` - Create single executable
+- `./install.sh --platform` - Create platform-specific bundles  
+- `./install.sh --optimized` - Create size-optimized bundle
 - `./install.sh --repair` - Repair existing installation
 
 **Options:**
@@ -36,9 +38,29 @@ The unified installer handles all installation scenarios with a single script.
 **Usage:** `./install/create-bundle.sh [--verbose]`  
 **Best for:** Creating portable offline bundles
 
+**File:** `install/create-single-executable.sh`  
+**Usage:** `./install/create-single-executable.sh`  
+**Best for:** Creating single file executables (PAR Packer)
+
+**File:** `install/create-platform-bundles.sh`  
+**Usage:** `./install/create-platform-bundles.sh [platform] [arch]`  
+**Best for:** Creating platform-specific optimized bundles
+
+**File:** `install/create-optimized-bundle.sh`  
+**Usage:** `./install/create-optimized-bundle.sh`  
+**Best for:** Creating size-optimized bundles with only used modules
+
 **File:** `install/repair-installation.sh`  
 **Usage:** `./install/repair-installation.sh [--verbose]`  
 **Best for:** Advanced repair operations
+
+**Repair Options:**
+1. Repair Dependencies - Reinstall missing Perl modules
+2. Update Installation - Reinstall with latest version
+3. Force Reinstall - Complete reinstall with backup
+4. Clean Uninstall - Remove ZChat completely
+5. Diagnose Issues - Check installation health
+6. Restore from Backup - Restore from previous backup
 
 **File:** `install/offline-installer.sh`  
 **Usage:** `./install/offline-installer.sh --download` (with internet)  
@@ -47,10 +69,21 @@ The unified installer handles all installation scenarios with a single script.
 
 ## Enhanced Features
 
+### Backup Management
+ZChat automatically creates backups during updates and force reinstalls. Backups are stored in:
+- `~/.zchat-backup-*` - Complete installation backups
+- `~/.config/zchat.backup.*` - Configuration-only backups
+
+**Backup Restoration:**
+- Use `./install.sh --repair` and select option 6
+- Automatic backup discovery and validation
+- Interactive backup selection with timestamps
+- Safe restoration with confirmation prompts
+
 ### Progress Indicators
 All installers now feature:
-- **Unicode Progress Bars**: Beautiful ██░░ progress indicators with ETA
-- **Status Indicators**: ✓ (success), ✗ (failed), ⚠ (warning)
+- **Unicode Progress Bars**: Beautiful progress indicators with ETA
+- **Status Indicators**: Success, failed, warning indicators
 - **Retry Logic**: Automatic retry with exponential backoff (2s, 4s, 8s delays)
 
 ### Command Line Options
@@ -67,6 +100,46 @@ All installers now feature:
 - **Dependency Selection**: Choose between core and optional modules
 - **Installation Protection**: Detects existing installations and suggests repair
 - **Configuration Backup**: Automatically backs up existing configs
+
+### Advanced Bundle Creation
+The installer now supports multiple bundle creation methods:
+
+#### Single Executable (`--single`)
+- Creates a single file executable using PAR Packer (pp)
+- Contains the entire ZChat application in one file
+- Ultimate portability - just copy one file and run
+- Platform-specific optimization
+- Zero external dependencies
+
+**About PAR Packer (pp):**
+PAR Packer is a Perl utility that creates standalone executables from Perl applications. It bundles:
+- The entire Perl interpreter
+- All required Perl modules
+- Your application code
+- All dependencies
+
+The result is a single executable file that runs on the target platform without requiring Perl or any modules to be installed. This is similar to how tools like PyInstaller work for Python applications.
+
+**Configuration Files:**
+The single executable will create configuration files in the standard locations:
+- User config: `~/.config/zchat/user.yaml`
+- Session configs: `~/.config/zchat/sessions/{session}/session.yaml`
+- Session history: `~/.config/zchat/sessions/{session}/history.json`
+- Session pins: `~/.config/zchat/sessions/{session}/pins.yaml`
+
+These files are created automatically when you first run the executable.
+
+#### Platform-Specific Bundles (`--platform`)
+- Creates optimized bundles for specific platforms (Linux, macOS, Windows)
+- Architecture-specific builds (x86_64, ARM64)
+- Platform-optimized performance
+- Reduced bundle size per platform
+
+#### Size-Optimized Bundles (`--optimized`)
+- Only includes modules actually used by ZChat
+- Minimal bundle size for faster downloads
+- Reduced storage requirements
+- Faster transfers and deployment
 
 ## LLM Server Configuration
 

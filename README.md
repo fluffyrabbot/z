@@ -548,33 +548,65 @@ cd z
 
 #### **Installation Methods**
 
-**1. Bundle Installation (Most Reliable)**
+**1. Single Executable (Ultimate Portability)**
 ```bash
-./install.sh --bundle
+./install.sh --single
 ```
-- ✅ Self-contained bundle with all dependencies
-- ✅ Works offline
-- ✅ No installation complexity
-- ✅ No CPAN installation required
-- ✅ Portable across systems
+- Single file executable (PAR Packer)
+- Contains entire ZChat app in one file
+- Zero external dependencies
+- Works offline
+- Ultimate portability
+- **Note**: Creates config files in `~/.config/zchat/` when run
 
-**2. Standard Installation (Full Features)**
+**2. Platform-Specific Bundles (Optimized)**
+```bash
+./install.sh --platform
+```
+- Optimized for specific platforms (Linux, macOS, Windows)
+- Architecture-specific builds (x86_64, ARM64)
+- Platform-optimized performance
+- Reduced bundle size per platform
+
+**3. Size-Optimized Bundle (Minimal)**
+```bash
+./install.sh --optimized
+```
+- Only includes actually used modules
+- Minimal bundle size
+- Faster downloads and transfers
+- Reduced storage requirements
+
+**4. Standard Installation (Full Features)**
 ```bash
 ./install.sh
 ```
-- ✅ Complete ZChat with all features
-- ✅ Requires CPAN and system packages
-- ✅ Most feature-complete
-- ⚠️ May require troubleshooting
+- Complete ZChat with all features
+- Requires CPAN and system packages
+- Most feature-complete
+- May require troubleshooting
 
-**3. Minimal Installation (Quick Setup)**
+**5. Minimal Installation (Quick Setup)**
 ```bash
 ./install.sh --minimal
 ```
-- ✅ Core dependencies only
-- ✅ Fast installation
-- ✅ Image processing disabled
-- ✅ Good for basic usage
+- Core dependencies only
+- Fast installation
+- Image processing disabled
+- Good for basic usage
+
+#### **Repair and Maintenance**
+```bash
+./install.sh --repair  # Repair, update, or uninstall ZChat
+```
+
+**Repair Options:**
+1. Repair Dependencies - Reinstall missing Perl modules
+2. Update Installation - Reinstall with latest version  
+3. Force Reinstall - Complete reinstall with backup
+4. Clean Uninstall - Remove ZChat completely
+5. Diagnose Issues - Check installation health
+6. Restore from Backup - Restore from previous backup
 
 #### **Additional Tools**
 ```bash

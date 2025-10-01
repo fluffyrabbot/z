@@ -138,13 +138,17 @@ main() {
         echo "   - Check installation health"
         echo "   - Identify problems"
         echo ""
+        echo -e "${LIGHT_BLUE}6. Restore from Backup${NC}"
+        echo "   - Restore from previous backup"
+        echo "   - Recover from failed operations"
+        echo ""
     else
         echo "No existing ZChat installation found."
         echo "Run the standard installer instead: ./install.sh"
         exit 0
     fi
 
-    read -p "Choose action (1-5): " -r
+    read -p "Choose action (1-6): " -r
     echo ""
 
     case $REPLY in
@@ -167,6 +171,10 @@ main() {
         5)
             print_info "Selected: Diagnose Issues"
             diagnose_issues
+            ;;
+        6)
+            print_info "Selected: Restore from Backup"
+            restore_from_backup_menu
             ;;
         *)
             print_error "Invalid choice"
@@ -196,7 +204,13 @@ repair_dependencies() {
     if ! command -v cpanm >/dev/null 2>&1; then
         print_info "Installing cpanm..."
         if ! retry_operation 3 2 "curl -L https://cpanmin.us | perl - App::cpanminus 2>/dev/null" "cpanm installation"; then
-            print_error "Failed to install cpanm"
+            print_error "Failed to install cpanm after 3 retries"
+            print_warning "This may indicate:"
+            print_warning "  - No internet connection"
+            print_warning "  - Firewall blocking downloads"
+            print_warning "  - DNS resolution issues"
+            print_info "Try installing cpanm manually:"
+            print_info "  curl -L https://cpanmin.us | perl - App::cpanminus"
             return 1
         fi
     fi
@@ -237,7 +251,13 @@ repair_dependencies() {
                 show_enhanced_progress $current_module $total_modules "$module" "success" $start_time
             else
                 show_enhanced_progress $current_module $total_modules "$module" "failed" $start_time
-                print_error "Failed to repair $module after retries"
+                print_error "Failed to repair $module after 3 retries"
+                print_warning "This may indicate:"
+                print_warning "  - Network connectivity issues"
+                print_warning "  - CPAN server problems"
+                print_warning "  - Insufficient disk space"
+                print_warning "  - Permission issues"
+                print_info "Try running: $CPANM_CMD $module"
             fi
         fi
     done
@@ -250,29 +270,64 @@ update_installation() {
     echo ""
     print_info "Updating ZChat installation..."
     
+    # Create rollback state
+    local rollback_state=""
+    local backup_timestamp=$(date +%s)
+    
     # Backup existing config
     if [ -d "$ZCHAT_CONFIG_DIR" ]; then
         print_info "Backing up existing configuration..."
-        cp -r "$ZCHAT_CONFIG_DIR" "$ZCHAT_CONFIG_DIR.backup.$(date +%s)"
+        local config_backup="$ZCHAT_CONFIG_DIR.backup.$backup_timestamp"
+        if cp -r "$ZCHAT_CONFIG_DIR" "$config_backup"; then
+            rollback_state="$config_backup"
+            print_status "Configuration backed up to: $config_backup"
+        else
+            print_error "Failed to backup configuration"
+            print_warning "Continuing without backup..."
+        fi
     fi
     
     # Update ZChat files
     print_info "Updating ZChat files..."
     if [ -f "./z/z" ]; then
-        cp "./z/z" "$ZCHAT_BIN_DIR/z" 2>/dev/null || true
-        chmod +x "$ZCHAT_BIN_DIR/z"
+        if cp "./z/z" "$ZCHAT_BIN_DIR/z" 2>/dev/null; then
+            chmod +x "$ZCHAT_BIN_DIR/z"
+            print_status "Updated ZChat binary"
+        else
+            print_error "Failed to update ZChat binary"
+            print_warning "Continuing with existing binary..."
+        fi
+    else
+        print_warning "ZChat binary not found in ./z/z"
     fi
     
     # Update libraries
     if [ -d "./z/lib" ]; then
         print_info "Updating ZChat libraries..."
-        cp -r "./z/lib" "$ZCHAT_BIN_DIR/" 2>/dev/null || true
+        if cp -r "./z/lib" "$ZCHAT_BIN_DIR/" 2>/dev/null; then
+            print_status "Updated ZChat libraries"
+        else
+            print_error "Failed to update ZChat libraries"
+            print_warning "Continuing with existing libraries..."
+        fi
+    else
+        print_warning "ZChat libraries not found in ./z/lib"
     fi
     
     # Repair dependencies
-    repair_dependencies
-    
-    print_status "ZChat updated successfully!"
+    if repair_dependencies; then
+        print_status "ZChat updated successfully!"
+        if [ -n "$rollback_state" ]; then
+            print_info "Rollback state available: $rollback_state"
+        fi
+    else
+        print_error "Dependency repair failed"
+        print_warning "Update may be incomplete"
+        if [ -n "$rollback_state" ]; then
+            print_info "Configuration backup available for rollback: $rollback_state"
+        fi
+        return 1
+    fi
 }
 
 # Function to force reinstall
@@ -294,27 +349,72 @@ force_reinstall() {
     BACKUP_DIR="$HOME/.zchat-backup-$(date +%s)"
     mkdir -p "$BACKUP_DIR"
     
+    local backup_success=true
+    
     if [ -d "$ZCHAT_CONFIG_DIR" ]; then
-        cp -r "$ZCHAT_CONFIG_DIR" "$BACKUP_DIR/config"
+        if cp -r "$ZCHAT_CONFIG_DIR" "$BACKUP_DIR/config"; then
+            print_status "Configuration backed up"
+        else
+            print_error "Failed to backup configuration"
+            backup_success=false
+        fi
     fi
     
     if [ -f "$ZCHAT_BIN_DIR/z" ]; then
-        cp "$ZCHAT_BIN_DIR/z" "$BACKUP_DIR/z"
+        if cp "$ZCHAT_BIN_DIR/z" "$BACKUP_DIR/z"; then
+            print_status "Binary backed up"
+        else
+            print_error "Failed to backup binary"
+            backup_success=false
+        fi
+    fi
+    
+    # Validate backup integrity
+    if [ "$backup_success" = true ]; then
+        if validate_backup "$BACKUP_DIR"; then
+            print_status "Backup created and validated successfully"
+        else
+            print_error "Backup validation failed"
+            backup_success=false
+        fi
+    fi
+    
+    if [ "$backup_success" = false ]; then
+        print_error "Backup creation failed"
+        print_warning "Continuing without backup (not recommended)"
     fi
     
     # Clean install
     print_info "Performing clean installation..."
+    local install_success=false
+    
     if [ -f "./install.sh" ]; then
-        ./install.sh --force
+        if ./install.sh --force; then
+            install_success=true
+        fi
     elif [ -f "../install.sh" ]; then
-        ../install.sh --force
+        if ../install.sh --force; then
+            install_success=true
+        fi
     else
         print_error "install.sh not found"
+        print_warning "Expected locations:"
+        print_warning "  - ./install.sh (current directory)"
+        print_warning "  - ../install.sh (parent directory)"
+        print_warning "Restoring from backup..."
+        restore_from_backup "$BACKUP_DIR"
         exit 1
     fi
     
-    print_status "Force reinstall completed!"
-    print_info "Backup saved to: $BACKUP_DIR"
+    if [ "$install_success" = true ]; then
+        print_status "Force reinstall completed!"
+        print_info "Backup saved to: $BACKUP_DIR"
+    else
+        print_error "Force reinstall failed"
+        print_warning "Restoring from backup..."
+        restore_from_backup "$BACKUP_DIR"
+        return 1
+    fi
 }
 
 # Function to clean uninstall
@@ -340,13 +440,35 @@ clean_uninstall() {
     print_info "Removing configuration..."
     rm -rf "$ZCHAT_CONFIG_DIR"
     
-    # Remove Perl modules (optional)
+    # Remove Perl modules (optional) - SAFETY WARNING
     echo ""
-    read -p "Remove Perl modules? (y/N): " -r
+    print_warning "WARNING: Removing Perl modules may affect other applications!"
+    print_warning "ZChat modules may be shared with other Perl applications."
+    echo ""
+    read -p "Remove ZChat Perl modules? (y/N): " -r
     echo ""
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        print_info "Removing Perl modules..."
-        rm -rf "$HOME/perl5"
+        print_info "Checking for ZChat-specific Perl installations..."
+        
+        # Only remove if we can safely identify ZChat-specific installations
+        if [ -d "$HOME/perl5" ] && [ -f "$HOME/perl5/bin/cpanm" ]; then
+            print_warning "Found local Perl installation in ~/perl5"
+            print_warning "This may contain modules for other applications too!"
+            echo ""
+            read -p "Are you sure you want to remove ~/perl5? (y/N): " -r
+            echo ""
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                print_info "Removing ~/perl5 (this may affect other applications)..."
+                rm -rf "$HOME/perl5"
+                print_status "Removed ~/perl5"
+            else
+                print_info "Skipping Perl module removal"
+            fi
+        else
+            print_info "No local Perl installation found in ~/perl5"
+            print_warning "ZChat modules may be installed system-wide"
+            print_warning "Manual cleanup may be needed if modules were installed globally"
+        fi
     fi
     
     print_status "ZChat completely removed!"
@@ -424,21 +546,163 @@ diagnose_issues() {
     print_status "Diagnosis completed!"
 }
 
-# Configure API (optional)
-if [ -f "./api-config.sh" ] || [ -f "./install/api-config.sh" ]; then
-    echo ""
-    read -p "Configure LLM server now? (y/N): " -r
-    echo ""
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        if [ -f "./api-config.sh" ]; then
-            source ./api-config.sh
-        else
-            source ./install/api-config.sh
-        fi
-        configure_api
-        test_api_config
+# Function to validate backup integrity
+validate_backup() {
+    local backup_dir="$1"
+    local errors=0
+    
+    print_info "Validating backup integrity: $backup_dir"
+    
+    # Check if backup directory exists
+    if [ ! -d "$backup_dir" ]; then
+        print_error "Backup directory not found: $backup_dir"
+        return 1
     fi
-fi
+    
+    # Check for essential files
+    local essential_files=("config" "z")
+    for file in "${essential_files[@]}"; do
+        if [ ! -e "$backup_dir/$file" ]; then
+            print_warning "Missing essential file: $file"
+            ((errors++))
+        fi
+    done
+    
+    # Check config directory structure
+    if [ -d "$backup_dir/config" ]; then
+        if [ ! -f "$backup_dir/config/user.yaml" ]; then
+            print_warning "Missing user.yaml in config backup"
+            ((errors++))
+        fi
+    fi
+    
+    # Check binary permissions
+    if [ -f "$backup_dir/z" ]; then
+        if [ ! -x "$backup_dir/z" ]; then
+            print_warning "Backup binary is not executable"
+            ((errors++))
+        fi
+    fi
+    
+    if [ $errors -eq 0 ]; then
+        print_status "Backup validation passed"
+        return 0
+    else
+        print_error "Backup validation failed with $errors errors"
+        print_warning "Backup may be corrupted or incomplete"
+        return 1
+    fi
+}
+
+# Function to restore from backup
+restore_from_backup() {
+    local backup_dir="$1"
+    
+    # Validate backup first
+    if ! validate_backup "$backup_dir"; then
+        print_error "Cannot restore from invalid backup"
+        return 1
+    fi
+    
+    print_info "Restoring from backup: $backup_dir"
+    
+    # Restore configuration
+    if [ -d "$backup_dir/config" ]; then
+        print_info "Restoring configuration..."
+        if cp -r "$backup_dir/config" "$ZCHAT_CONFIG_DIR"; then
+            print_status "Configuration restored"
+        else
+            print_error "Failed to restore configuration"
+            return 1
+        fi
+    fi
+    
+    # Restore binary
+    if [ -f "$backup_dir/z" ]; then
+        print_info "Restoring binary..."
+        if cp "$backup_dir/z" "$ZCHAT_BIN_DIR/z"; then
+            chmod +x "$ZCHAT_BIN_DIR/z"
+            print_status "Binary restored"
+        else
+            print_error "Failed to restore binary"
+            return 1
+        fi
+    fi
+    
+    print_status "Restore completed"
+}
+
+# Function to show backup restoration menu
+restore_from_backup_menu() {
+    echo ""
+    print_info "Available backups:"
+    echo ""
+    
+    # Find all backup directories
+    local backups=()
+    for backup in "$HOME"/.zchat-backup-*; do
+        if [ -d "$backup" ]; then
+            backups+=("$backup")
+        fi
+    done
+    
+    # Find config backups
+    for backup in "$HOME"/.config/zchat.backup.*; do
+        if [ -d "$backup" ]; then
+            backups+=("$backup")
+        fi
+    done
+    
+    if [ ${#backups[@]} -eq 0 ]; then
+        print_warning "No backups found"
+        print_info "Backups are created during updates and force reinstalls"
+        return 0
+    fi
+    
+    # Show available backups
+    local i=1
+    for backup in "${backups[@]}"; do
+        local backup_name=$(basename "$backup")
+        local backup_date=$(stat -c %y "$backup" 2>/dev/null | cut -d' ' -f1,2 | cut -d'.' -f1)
+        echo -e "${LIGHT_BLUE}$i. $backup_name${NC}"
+        echo "   Created: $backup_date"
+        echo "   Path: $backup"
+        echo ""
+        ((i++))
+    done
+    
+    echo "0. Cancel"
+    echo ""
+    read -p "Select backup to restore (0-${#backups[@]}): " -r
+    echo ""
+    
+    if [ "$REPLY" = "0" ]; then
+        print_info "Cancelled"
+        return 0
+    fi
+    
+    if [ "$REPLY" -ge 1 ] && [ "$REPLY" -le ${#backups[@]} ]; then
+        local selected_backup="${backups[$((REPLY-1))]}"
+        print_info "Selected backup: $selected_backup"
+        
+        echo ""
+        print_warning "This will overwrite current ZChat installation!"
+        read -p "Continue? (y/N): " -r
+        echo ""
+        
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            restore_from_backup "$selected_backup"
+        else
+            print_info "Cancelled"
+        fi
+    else
+        print_error "Invalid selection"
+    fi
+}
+
+# Note: LLM configuration is handled separately
+# Users can configure their LLM server after repair using:
+# ./install/api-config.sh
 
 # Run main function if script is executed directly
 if [ "${BASH_SOURCE[0]}" == "${0}" ]; then
@@ -459,6 +723,6 @@ if [ "${BASH_SOURCE[0]}" == "${0}" ]; then
     echo ""
     echo "Next steps:"
     echo "1. Test ZChat: z --status"
-    echo "2. Configure LLM server if needed"
+    echo "2. Configure LLM server: ./install/api-config.sh"
     echo "3. Run: z --help for usage information"
 fi
