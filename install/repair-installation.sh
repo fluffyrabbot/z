@@ -114,6 +114,16 @@ main() {
         print_info "ZChat binary found in $ZCHAT_BIN_DIR"
     fi
 
+    if [ -f "./z" ]; then
+        ZCHAT_INSTALLED=true
+        print_info "ZChat binary found in current directory"
+    fi
+
+    if command -v z >/dev/null 2>&1; then
+        ZCHAT_INSTALLED=true
+        print_info "ZChat command found in PATH"
+    fi
+
     if [ "$ZCHAT_INSTALLED" = true ]; then
         echo ""
         echo "Choose repair action:"
