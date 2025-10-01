@@ -57,28 +57,49 @@ sub check_dependencies() {
     }
     say "";
     
-    # Check modules
-    say "Checking required modules:";
-    my @modules = qw(Mojo::UserAgent JSON::XS YAML::XS Text::Xslate Image::Magick Clipboard);
-    my $all_good = 1;
+    # Check core modules (required)
+    say "Checking core modules:";
+    my @core_modules = qw(Mojo::UserAgent JSON::XS YAML::XS Text::Xslate Clipboard);
+    my $core_good = 1;
     
-    for my $mod (@modules) {
+    for my $mod (@core_modules) {
         if (eval "use $mod; 1") {
             say "${success}OK: $mod${rst}";
         } else {
             say "${error}ERROR: $mod${rst}";
-            $all_good = 0;
+            $core_good = 0;
         }
     }
     
-    if (!$all_good) {
+    if (!$core_good) {
         say "";
-        say "${error}Missing modules detected. Please run the installation script first.${rst}";
+        say "${error}Missing core modules detected. Please run the installation script first.${rst}";
         exit 1;
     }
     
+    # Check optional modules
     say "";
-    say "${success}All dependencies satisfied!${rst}";
+    say "Checking optional modules:";
+    my @optional_modules = qw(Image::Magick);
+    my $optional_count = 0;
+    
+    for my $mod (@optional_modules) {
+        if (eval "use $mod; 1") {
+            say "${success}OK: $mod${rst}";
+            $optional_count++;
+        } else {
+            say "${warning}WARNING: $mod (optional)${rst}";
+        }
+    }
+    
+    say "";
+    say "${success}Core dependencies satisfied!${rst}";
+    if ($optional_count > 0) {
+        my $total_optional = scalar @optional_modules;
+        say "${info}Optional modules available: $optional_count/$total_optional${rst}";
+    } else {
+        say "${warning}No optional modules available (image processing disabled)${rst}";
+    }
     wait_for_user();
 }
 
