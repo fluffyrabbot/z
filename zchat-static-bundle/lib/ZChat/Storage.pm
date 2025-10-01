@@ -1,0 +1,294 @@
+package ZChat::Storage;
+use v5.26.3;
+use feature 'say';
+use experimental 'signatures';
+use strict;
+use warnings;
+
+use utf8;
+use YAML::XS qw(LoadFile DumpFile);
+use JSON::XS;
+use File::Spec;
+use File::Path qw(make_path);
+use Carp;
+
+use ZChat::Utils ':all';
+
+sub new {
+    my ($class, %opts) = @_;
+    
+    my $self = {
+        umask => ($opts{umask} // 0177),  # Secure file permissions
+    };
+    
+    bless $self, $class;
+    return $self;
+}
+
+# YAML operations
+sub load_yaml {
+    my ($self, $filepath) = @_;
+    
+    return undef unless -e $filepath;
+    
+    my $contents;
+    sel 3, " Loading a YAML file: $filepath";  # Changed from level 2 to 3
+    eval {
+        $contents = LoadFile($filepath);
+    };
+    
+    if ($@) {
+        swarn "Failed to load YAML file '$filepath': $@";
+        return undef;
+    }
+    $contents;
+}
+
+sub save_yaml {
+    my ($self, $filepath, $data) = @_;
+    
+    # Ensure directory exists
+    my $dir = (File::Spec->splitpath($filepath))[1];
+    make_path($dir) if $dir && !-d $dir;
+    
+    my $old_umask = umask($self->{umask});
+    
+    sel 3, " Saving a YAML file: $filepath";  # Changed from level 2 to 3
+    eval {
+        DumpFile($filepath, $data);
+    };
+    
+    umask($old_umask);
+    
+    if ($@) {
+        swarn "Failed to save YAML file '$filepath': $@";
+        return 0;
+    }
+    
+    return 1;
+}
+
+# Session-specific operations
+sub get_session_dir {
+    my ($self, $session_name) = @_;
+    
+    return undef unless $session_name;
+    if ($session_name =~ m#(?:^|/)\.\.(?:/|$)#) {
+    	cnfs "get_session_dir(): Parent dirs (..) not currently accepted in session names.\n";
+	}
+    if ($session_name =~ m#^/#) {
+    	cnfs "get_session_dir(): Root (^/) cannot start a session name.\n";
+	}
+    
+    my $home = $ENV{HOME} || die "HOME environment variable not set";
+    my $config_dir = File::Spec->catdir($home, '.config', 'zchat');
+    my @session_parts = split('/', $session_name);
+    my $dir = File::Spec->catdir($config_dir, 'sessions', @session_parts);
+    sel 1, "get_session_dir() => " . ($dir // 'undef');
+    
+    return $dir;
+}
+
+sub load_history {
+    my ($self, $session_name) = @_;
+    
+    return [] unless $session_name;
+    
+    my $session_dir = $self->get_session_dir($session_name);
+    return [] unless $session_dir;
+    
+    my $history_file = File::Spec->catfile($session_dir, 'history.json');
+    sel 1, "load_history(): History file => " . ($history_file // 'undef');
+    my $history = read_json_file($history_file);
+    
+    return [] unless $history && ref($history) eq 'ARRAY';
+    
+    # Ensure IDs
+    for my $i (0..$#$history) {
+        $history->[$i]{id} ||= $i + 1;
+    }
+    
+    return $history;
+}
+
+sub save_history {
+    my ($self, $session_name, $history) = @_;
+    
+    return 0 unless $session_name && $history;
+    
+    my $session_dir = $self->get_session_dir($session_name);
+    return 0 unless $session_dir;
+    
+    make_path($session_dir) unless -d $session_dir;
+    
+    my $history_file = File::Spec->catfile($session_dir, 'history.json');
+    
+    # Ensure sequential IDs
+    for my $i (0..$#$history) {
+        $history->[$i]{id} = $i + 1;
+    }
+    
+    sel 1, "Saving history to: $history_file";
+    write_json_file($history_file, $history, { min=>1 });
+}
+
+sub append_to_history {
+    my ($self, $session_name, $user_input, $assistant_response) = @_;
+    
+    return 0 unless $session_name;
+    
+    my $session_dir = $self->get_session_dir($session_name);
+    return 0 unless $session_dir;
+    
+    my $history_file = File::Spec->catfile($session_dir, 'history.json');
+    
+    # Load existing history
+    my $history = $self->load_history($session_name);
+    
+    # Add new messages
+    my $next_id = @$history ? ($history->[-1]{id} || 0) + 1 : 1;
+    
+    push @$history, {
+        role => 'user',
+        content => $user_input,
+        ts => time,
+        id => $next_id,
+    };
+    
+    push @$history, {
+        role => 'assistant', 
+        content => $assistant_response,
+        ts => time,
+        id => $next_id + 1,
+    };
+    
+    sel 1, "Appending to history file: $history_file";
+    return $self->save_history($session_name, $history);
+}
+
+sub wipe_history {
+    my ($self, $session_name) = @_;
+    return 0 unless $session_name;
+    my $session_dir = $self->get_session_dir($session_name);
+    return 0 unless $session_dir;
+    my $history_file = File::Spec->catfile($session_dir, 'history.json');
+    sel 1, "wipe_history(): History file => " . ($history_file // 'undef');
+    if (-e $history_file) {
+        unlink $history_file or do {
+            warn "Failed to remove history file '$history_file': $!";
+            return 0;
+        };
+    }
+    return 1;
+}
+
+# Pin operations
+sub load_pins {
+    my ($self, $session_name) = @_;
+    
+    return [] unless $session_name;
+    
+    my $session_dir = $self->get_session_dir($session_name);
+    return [] unless $session_dir;
+    
+    my $pins_file = File::Spec->catfile($session_dir, 'pins.yaml');
+    my $pin_data;
+    if (-f $pins_file) {
+		sokl 1, "Loading pins from $pins_file";
+		$pin_data = $self->load_yaml($pins_file);
+	} else {
+		sel 2, "No pins file; NOT loading from $pins_file";
+	}
+    
+    return $pin_data ? ($pin_data->{pins} || []) : [];
+}
+
+sub save_pins {
+    my ($self, $session_name, $pins) = @_;
+    
+    return 0 unless $session_name;
+    
+    my $session_dir = $self->get_session_dir($session_name);
+    return 0 unless $session_dir;
+    
+    make_path($session_dir) unless -d $session_dir;
+    
+    my $pins_file = File::Spec->catfile($session_dir, 'pins.yaml');
+    
+    # Load existing pin data to preserve metadata
+    my $existing = $self->load_yaml($pins_file) || {};
+    
+    # Update pins and ensure created timestamp
+    $existing->{pins} = $pins;
+    $existing->{created} = time() unless exists $existing->{created};
+    
+    sel 1, "Saving pins to $pins_file";
+    return $self->save_yaml($pins_file, $existing);
+}
+
+# Utility methods
+sub file_exists {
+    my ($self, $filepath) = @_;
+    return -e $filepath;
+}
+
+sub is_readable {
+    my ($self, $filepath) = @_;
+    return -r $filepath;
+}
+
+sub create_session_if_needed {
+    my ($self, $session_name) = @_;
+    
+    return 0 unless $session_name;
+    
+    my $session_dir = $self->get_session_dir($session_name);
+    return 0 unless $session_dir;
+    
+    unless (-d $session_dir) {
+        make_path($session_dir);
+        
+        # Create initial session config
+        my $session_config_file = File::Spec->catfile($session_dir, 'session.yaml');
+        my $initial_config = {
+            created => time(),
+        };
+		sel 1, "Saving session to: $session_config_file";
+        $self->save_yaml($session_config_file, $initial_config);
+    }
+    
+    return 1;
+}
+
+1;
+
+__END__
+
+=head1 NAME
+
+ZChat::Storage - File I/O operations for ZChat
+
+=head1 SYNOPSIS
+
+    use ZChat::Storage;
+    
+    my $storage = ZChat::Storage->new();
+    
+    # YAML operations
+    my $config = $storage->load_yaml('/path/to/config.yaml');
+    $storage->save_yaml('/path/to/config.yaml', $data);
+    
+    # History operations  
+    my $history = $storage->load_history('session_name');
+    $storage->append_to_history('session_name', $user_input, $response);
+    
+    # Pin operations
+    my $pins = $storage->load_pins('session_name');
+    $storage->save_pins('session_name', $pins);
+
+=head1 DESCRIPTION
+
+Handles all file I/O operations for ZChat including YAML configs,
+JSON history files, and pin storage with secure file permissions.
+
+=cut

@@ -7,6 +7,8 @@ set -e
 # Source progress utilities
 if [ -f "./progress-utils.sh" ]; then
     source ./progress-utils.sh
+elif [ -f "./install/progress-utils.sh" ]; then
+    source ./install/progress-utils.sh
 else
     echo "Warning: progress-utils.sh not found, using basic progress"
     # Fallback colors and functions
@@ -138,7 +140,7 @@ main() {
         echo ""
     else
         echo "No existing ZChat installation found."
-        echo "Run the standard installer instead: ./install-master.sh"
+        echo "Run the standard installer instead: ./install.sh"
         exit 0
     fi
 
@@ -200,11 +202,13 @@ repair_dependencies() {
     fi
     
     # Required modules (minimal set)
-    if [ -f "./dependencies.sh" ]; then
-        source ./dependencies.sh
+    if [ -f "./install/install-common.sh" ]; then
+        source ./install/install-common.sh
+    elif [ -f "./install-common.sh" ]; then
+        source ./install-common.sh
         modules=($(export_core_modules))
     else
-        print_error "dependencies.sh not found"
+        print_error "install-common.sh not found"
         exit 1
     fi
     
@@ -300,7 +304,14 @@ force_reinstall() {
     
     # Clean install
     print_info "Performing clean installation..."
-    ./install.sh
+    if [ -f "./install.sh" ]; then
+        ./install.sh --force
+    elif [ -f "../install.sh" ]; then
+        ../install.sh --force
+    else
+        print_error "install.sh not found"
+        exit 1
+    fi
     
     print_status "Force reinstall completed!"
     print_info "Backup saved to: $BACKUP_DIR"
@@ -371,8 +382,10 @@ diagnose_issues() {
     
     # Check Perl modules
     print_info "Perl modules:"
-    if [ -f "./dependencies.sh" ]; then
-        source ./dependencies.sh
+    if [ -f "./install/install-common.sh" ]; then
+        source ./install/install-common.sh
+    elif [ -f "./install-common.sh" ]; then
+        source ./install-common.sh
         modules=($(export_critical_modules))
     else
         modules=("Mojo::UserAgent" "JSON::XS" "YAML::XS" "Text::Xslate" "Clipboard")
@@ -412,12 +425,16 @@ diagnose_issues() {
 }
 
 # Configure API (optional)
-if [ -f "./api-config.sh" ]; then
+if [ -f "./api-config.sh" ] || [ -f "./install/api-config.sh" ]; then
     echo ""
     read -p "Configure LLM server now? (y/N): " -r
     echo ""
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        source ./api-config.sh
+        if [ -f "./api-config.sh" ]; then
+            source ./api-config.sh
+        else
+            source ./install/api-config.sh
+        fi
         configure_api
         test_api_config
     fi

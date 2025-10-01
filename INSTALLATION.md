@@ -6,50 +6,44 @@
 ```bash
 git clone https://github.com/yourusername/z
 cd z
-./install-master.sh
+./install.sh
 ```
 
 ## Installation Methods
 
-### 1. Master Installer (Recommended)
-**File:** `install-master.sh`  
-**Usage:** `./install-master.sh [--verbose] [--force]`  
-**Best for:** New users who want guidance
-
-Presents a menu of installation options with descriptions.
-
-### 2. Static Bundle (Most Reliable)
-**File:** `create-bundle.sh`  
-**Usage:** `./create-bundle.sh [--verbose]`  
-**Best for:** Portability without CPAN complexity
-
-Creates a self-contained bundle with all dependencies downloaded locally.
-
-### 3. Standard Installation (Full Features)
+### 1. Unified Installer (Recommended)
 **File:** `install.sh`  
-**Usage:** `./install.sh [--verbose] [--force] [--offline]`  
-**Best for:** Complete functionality with all features
+**Usage:** `./install.sh [OPTIONS]`  
+**Best for:** All users - single installer with multiple modes
 
-### 4. Minimal Installation (Quick Setup)
-**File:** `install-deps-minimal.sh`  
-**Usage:** `./install-deps-minimal.sh [--verbose] [--offline]`  
-**Best for:** Fast setup, core functionality only
+The unified installer handles all installation scenarios with a single script.
 
-### 5. Adaptive Installation (Smart)
-**File:** `install-adaptive.sh`  
-**Usage:** `./install-adaptive.sh [--verbose] [--force]`  
-**Best for:** Automatic environment detection and optimal method selection
+**Installation Modes:**
+- `./install.sh` - Standard installation (default)
+- `./install.sh --minimal` - Quick installation with core dependencies only
+- `./install.sh --adaptive` - Smart installation with environment detection
+- `./install.sh --bundle` - Create self-contained bundle
+- `./install.sh --repair` - Repair existing installation
 
-### 6. Repair Installation (Maintenance)
-**File:** `repair-installation.sh`  
-**Usage:** `./repair-installation.sh [--verbose]`  
-**Best for:** Fixing existing installations
+**Options:**
+- `--verbose, -v` - Verbose output
+- `--force, -f` - Force installation (overwrite existing)
+- `--offline, -o` - Offline installation mode
+- `--help, -h` - Show help
 
-### 7. Offline Installation
-**File:** `offline-installer.sh`  
-**Usage:** `./offline-installer.sh --download` (with internet)  
-**Usage:** `./offline-installer.sh --create-installer` (offline)  
-**Best for:** Installing without internet connection
+### 2. Specialized Tools
+**File:** `install/create-bundle.sh`  
+**Usage:** `./install/create-bundle.sh [--verbose]`  
+**Best for:** Creating portable offline bundles
+
+**File:** `install/repair-installation.sh`  
+**Usage:** `./install/repair-installation.sh [--verbose]`  
+**Best for:** Advanced repair operations
+
+**File:** `install/offline-installer.sh`  
+**Usage:** `./install/offline-installer.sh --download` (with internet)  
+**Usage:** `./install/offline-installer.sh --create-installer` (offline)  
+**Best for:** Offline installation preparation
 
 ## Enhanced Features
 
@@ -138,7 +132,8 @@ export OPENAI_API_KEY=your-key-here
 
 **Permission Denied**
 ```bash
-chmod +x install-*.sh
+chmod +x install.sh
+chmod +x install/*.sh
 ```
 
 **Perl Version Too Old**
@@ -176,7 +171,7 @@ source ~/.bashrc
 
 2. **Run repair installer:**
    ```bash
-   ./repair-installation.sh
+   ./install.sh --repair
    ```
 
 3. **View help:**

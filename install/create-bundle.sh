@@ -7,6 +7,8 @@ set -e
 # Source progress utilities
 if [ -f "./progress-utils.sh" ]; then
     source ./progress-utils.sh
+elif [ -f "./install/progress-utils.sh" ]; then
+    source ./install/progress-utils.sh
 else
     echo "Warning: progress-utils.sh not found, using basic progress"
     # Fallback colors and functions
@@ -151,11 +153,13 @@ if ! eval $(perl -I "$TEMP_CPAN/lib/perl5" -Mlocal::lib="$TEMP_CPAN"); then
 fi
 
 # Required modules
-if [ -f "./dependencies.sh" ]; then
-    source ./dependencies.sh
+if [ -f "./install/install-common.sh" ]; then
+    source ./install/install-common.sh
+elif [ -f "./install-common.sh" ]; then
+    source ./install-common.sh
     modules=($(export_all_modules))
 else
-    print_error "dependencies.sh not found"
+    print_error "install-common.sh not found"
     exit 1
 fi
 

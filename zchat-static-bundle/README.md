@@ -555,10 +555,17 @@ cd z
 - ✅ Self-contained bundle with all dependencies
 - ✅ Works offline
 - ✅ No installation complexity
+
+**2. Static Bundle (Portable)**
+```bash
+./create-bundle.sh
+```
+- ✅ Self-contained bundle with downloaded dependencies
 - ✅ No CPAN installation required
 - ✅ Portable across systems
+- ✅ Good balance of features and reliability
 
-**2. Standard Installation (Full Features)**
+**3. Standard Installation (Full Features)**
 ```bash
 ./install.sh
 ```
@@ -567,7 +574,7 @@ cd z
 - ✅ Most feature-complete
 - ⚠️ May require troubleshooting
 
-**3. Minimal Installation (Quick Setup)**
+**4. Minimal Installation (Quick Setup)**
 ```bash
 ./install.sh --minimal
 ```

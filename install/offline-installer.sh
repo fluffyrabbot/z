@@ -7,6 +7,8 @@ set -e
 # Source progress utilities
 if [ -f "./progress-utils.sh" ]; then
     source ./progress-utils.sh
+elif [ -f "./install/progress-utils.sh" ]; then
+    source ./install/progress-utils.sh
 else
     echo "Warning: progress-utils.sh not found, using basic progress"
     # Fallback colors and functions
@@ -43,8 +45,10 @@ download_modules() {
     echo -e "${YELLOW}Downloading Perl modules for offline installation...${NC}"
     
     # Source dependencies
-    if [ -f "./dependencies.sh" ]; then
-        source ./dependencies.sh
+    if [ -f "./install/install-common.sh" ]; then
+        source ./install/install-common.sh
+    elif [ -f "./install-common.sh" ]; then
+        source ./install-common.sh
         modules=($(export_all_modules))
     else
         modules=(

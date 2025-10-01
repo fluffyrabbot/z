@@ -1,0 +1,1015 @@
+#!/usr/bin/perl
+# Re-run in debugger if...
+exec($^X, '-d', "$0", grep {!/^--debug$/} @ARGV) if grep {/^--debug$/} @ARGV;
+
+my $VERSION = "0.8b";
+
+use v5.26.3;
+use feature 'say';
+use experimental 'signatures';
+use strict;
+use warnings;
+
+use utf8;
+use FindBin;
+use lib "$FindBin::RealBin/lib";
+
+use ZChat;
+use ZChat::Storage;
+use ZChat::Config;
+use ZChat::Pin;
+use ZChat::Utils ':all';
+use ZChat::ansi ':all';
+
+use Getopt::Long::Descriptive;
+# use Getopt::Long::Descriptive::Opts;
+use POSIX qw(strftime);
+use JSON::XS;
+use URI::Escape;
+use Data::Dumper;
+use List::Util qw(max);
+use Clipboard;
+use MIME::Base64;
+# use Image::Magick; # Optional - will be loaded conditionally
+use File::Slurper qw(write_text read_text read_lines read_binary);
+use File::Basename;
+use Encode qw(encode_utf8 decode);
+use String::ShellQuote;
+use File::Copy;
+use File::Temp qw(tempfile);
+use File::Compare;
+use Carp 'confess';
+use Term::ReadLine;
+use Term::ReadLine::Gnu qw(RL_PROMPT_START_IGNORE RL_PROMPT_END_IGNORE);
+no warnings 'once';
+
+# Terminal control
+my $C_IGN_S = RL_PROMPT_START_IGNORE;
+my $C_IGN_E = RL_PROMPT_END_IGNORE;
+
+# Global settings
+select STDERR; $|=1;
+select STDOUT; $|=1;
+binmode *STDIN, "raw";
+binmode *STDOUT, "utf8";
+binmode *STDERR, "utf8";
+
+my $user = `whoami`; chomp $user;
+my $def_npredict = 8192;
+my $def_pin_max = 50;
+my @cmd_tts = ("voice-piper-interactive");
+my $verbose = 0;
+my $verbose_resp = 0;
+my $editor = $ENV{EDITOR} // 'vim';
+my $non_query_acts=0; # Non-query actions
+
+# Colors
+my $clr_user = a24bg(35,0,35). a24fg(230,255,255);
+my $clr_sys = a24bg(5,20,40). a24fg(230,245,255);
+my $intmode_prompt = "$C_IGN_S$gra${C_IGN_E}>> $C_IGN_S$rst$clr_user$C_IGN_E";
+my $clr_notice_bg = a24bg(30,155,30);
+my $clr_notice_fg = $whi;
+
+sub help_sec($str) { "\033[44;33;1m $str $rst" }
+
+my ($opt, $usage) = describe_options(
+    'z %o [prompt]',
+    [ 'help|h',             "This beautiful help" ],
+    [ 'verbose|v+',         "Increase verbosity", { default => 0 } ],
+    [ 'verbose-resp|vr+',   "Verbose response data" ],
+    [ 'image|img:s@',       "Provide images (use [img] or [img-1]..[img-N] in prompt) (This is old and needs updating)" ],
+    [ 'clipboard|cb',       "Use clipboard content as Query" ],
+    [ 'interactive|int|i',  "Interactive mode (query on CLI can be included as first message)" ],
+    [ 'echo1|e',            "Echo back initial prompt" ],
+    [ 'echo-delineated|echod|ee', "Echo with <echo></echo> and <reply></reply> tags" ],
+    [ 'raw|r',              "Raw output (no processing)" ],
+    [ 'tokens-full',        "Output tokens of input text" ],
+    [ 'token-count|T',      "Count tokens in input text" ],
+    [ 'ctx',                "Get running model n_ctx" ],
+    [ 'metadata',           "Get running model metadata" ],
+    [ 'n_predict|P=i',      "Limit prediction length to N tokens", { default => $def_npredict } ],
+    [ 'play-user|pu',       "Play user text with TTS" ],
+    [ 'play-resp|pr',       "Play response text with TTS" ],
+    [ 'probs',              "Return probabilities for top N tokens" ],
+    [ 'no-color|nc',        "Disable color in interactive mode" ],
+    [ 'grammar|g=s',        "Force a grammar (string)" ],
+    [ 'thought|think',      "Do not remove reasoning sections" ],
+    [ 'thought-re|tre=s',   "Specify a regex for stripping reasoning" ],
+    [],
+    [ help_sec('Storage options and Session management:') ],
+    [ 'session|n=s',        "Session name (slash-separated path)" ],
+    [],
+    [ 'store-user|su|S',    "Store CLI settings in user global config" ],
+    [ 'store-session|ss',   "Store CLI settings in current session config" ],
+    [ 'store-pproc|store-shell|sp',  "Save a session name and/or system-prompt tied to your current shell. This uses SID+PPID in POSIX systems (and uses the /proc/ file system to obtain the group leader)" ],
+    [ 'set-pproc=i',        "Override parent ID for --store-pproc/--sp, if you think you know better, but when our SID+PPID fail to match you only have yourself to blame." ],
+    [],
+    [ help_sec('System Prompt:') ],
+    [ 'system-string|system-str|sstr=s', "Set system prompt as a literal string (highest explicit source after file)" ],
+    [ 'system-file|sfile=s', "Set system prompt from a file (relative paths allowed)" ],
+    [ 'system-persona|spersona|persona=s', "Set system prompt by persona name (resolved by persona tool)" ],
+    [ 'system|sys|s=s',     "Auto-resolve through -file then -persona (but does NOT accept a string)" ],
+    [],
+    [ help_sec('Deleting things (but see History wipe next section)') ],
+    [ 'del-user|du', "Wipe (delete) entire user global config" ],
+    [ 'del-session|ds', "Wipe (delete) entire session (history, pins, settings, ..)" ],
+    [ 'del-pproc|del-shell|dp', "Wipe (delete) shell-tied config" ],
+    [],
+    [ 'clear-system-user|csu|cS', "Clear system prompts from user global config" ],
+    [ 'clear-system-session|css', "Clear system prompts from current session config" ],
+    [ 'clear-system-pproc|clear-system-shell|csp', "Clear from shell-tied config" ],
+    [ "Note: The above options allow you to clear at one level while assigning a new one runtime OR storing it during the same run." ],
+    [ "  e.g. '--csp --system-file data/coder.txt --sp'" ],
+    [],
+    [ 'clear-session-user|cssu|cssS', "Clear session name from user global config" ],
+    [ 'clear-session-pproc|clear-session-shell|cssp', "Clear session name from shell-tied config" ],
+    [ 'Note: You can\'t store a session name in a session. :)' ],
+    [],
+    [ help_sec('History:') ],
+    [ 'wipe|w',             "Wipe conversation history" ],
+    [ 'wipeold|wipeexp|we|wo=s',  "Wipe/expire msgs older than {FLOAT TIME}[smhdwMyY] (e.g. 1.5h)" ],
+    [ 'no-history|H',       "Do not use history (no load, no store)" ],
+    [ 'input-only|I',       "Use history BUT do not write to it" ],
+    [ 'edit-hist|eh|E',     "Edit history in $editor" ],
+    [ 'owrite-last=s',      "Overwrite last history message for role (u|user|a|assistant) with current prompt" ],
+    [ 'conv-last|cl=s',     "Write last message content: '-' => stdout, '-PATH' or 'PATH' => write to file" ],
+    [ 'output-last|ol',     "Write last message to STDOUT (same as '--conv-last -')" ],
+    [],
+    [ help_sec('Utility:') ],
+    [ 'list-sys|sys-list|L', "List available file and 'persona'-based system prompts." ],
+    [ 'fallbacks-ok',       "OK to use fallbacks if things fail" ],
+    [ 'status|stat',        "Show current configuration status and precedence" ],
+    [],
+    [ help_sec('Message pinning (see --help-pins):') ],
+    [ 'pin=s@',             "Add pinned message(s)" ],
+    [ 'pins-file=s@',       "Add pinned message(s) from file(s)" ],
+    [ 'pins-list',          "List all pinned messages (their lines will wrap)" ],
+    [ 'pins-sum',           "List pinned messages (one-line summary)" ],
+    [ 'pins-cnt',           "Output total count of all pins of all pin types" ],
+    [ 'pin-sum-len=i',      "Max length for pin summary lines" ],
+    [ 'pin-write=s',        "Overwrite pin by index: --pin-write '0=new content'" ],
+    [ 'pins-clear',         "Clear all pinned messages" ],
+    [ 'pin-rm=i@',          "Remove pin(s) by index" ],
+    [ 'pins-sys-max=i',     "Max system pins", { default => $def_pin_max } ],
+    [ 'pins-user-max=i',    "Max user pins", { default => $def_pin_max } ],
+    [ 'pins-ast-max=i',     "Max assistant pins", { default => $def_pin_max } ],
+	[],
+    [ 'pin-sys=s@',         "Add system pin(s)" ],
+    [ 'pin-user=s@',        "Add user pin(s)" ],
+    [ 'pin-ast=s@',         "Add assistant pin(s) (shorthand: ast)" ],
+    [ 'pin-ua-pipe=s@',     "Add paired user|||assistant pin(s)" ],
+    [ 'pin-ua-json=s@',     "Add paired pins from JSON object(s) with {user,assistant}" ],
+    [ 'pins-clear-user',    "Clear user pins only" ],
+    [ 'pins-clear-ast',     "Clear assistant pins only" ],
+    [ 'pins-clear-sys',     "Clear system pins only" ],
+    [ 'pin-shim=s',         "Set shim appended to user/assistant pinned messages" ],
+	[ 'pin-tpl-user=s',     "Template for user pins when using vars/varsfirst mode" ],
+	[ 'pin-tpl-ast=s',      "Template for assistant pins when using vars/varsfirst mode" ],
+	[ 'pin-mode-sys=s',     "How to include system pins: vars|concat|both (default: vars)" ],
+	[ 'pin-mode-user=s',    "How to include user pins: vars|varsfirst|concat (default: concat)" ],
+	[ 'pin-mode-ast=s',     "How to include assistant pins: vars|varsfirst|concat (default: concat)" ],
+	[],
+	[ help_sec('Help:') ],
+    [ 'help-sys-pin-vars',  "Show quick example of template vars to use for system pins", ],
+    [ 'help-pins',          "Show detailed help for pinning" ],
+    [ 'help-cli',           "CLI use - Basic", ],
+    [ 'help-cli-adv',       "cli use - Advanced", ],
+    [ 'version',            "Show version ($VERSION)", ],
+);
+
+@ARGV = map { decode('UTF-8', $_) } @ARGV;
+
+if ($opt->help) {
+    my $pager = pager();
+    print $pager ($usage->text);
+    print $pager "\n\nBasic usage (Version: $VERSION):\n";
+    print $pager <<~'EOT';
+        $ z "My query" # LLM output to stdout. History stored in 'default'
+          # (~/.config/zchat/sessions/default/history.json)
+        $ z -w  # Wiped history (ie. deleted ^ 'default' history file)
+        $ z -H "My query" # One-off query; no history read or written
+        $ z -n pets/rufus "what's a balanced diet..."
+          # (Created ~/.config/zchat/sessions/pets/spot/history.json)
+        $ z -n myprj/ui --system "Always answer in one-line" --sp
+          # Stored session name and a temporary system prompt in ^^ my shell.
+          # (But didn't perform a query.)
+          # --system, with type not specified, auto-detected the spaces
+          #      as a string. --system-file "My Assistant.txt" specifies.
+
+        Select or create 'myprj' session, store it active in the
+         current shell session group, and perform a query, which will
+         be stored in 'myprj' chat history.
+        $ z -n myprj --sp -- "What's a SID and Session Group Leader?"
+         # session *name* stored in /tmp/zchat-{uid}-{sid}.{sgpid}.yaml
+         # history in ~/.config/zchat/sessions/myprj/history.json
+
+        Same, but subdirs can be used
+        $ z -n myprj2 -- "Hist stored in 'myprj2', but only for this call."
+          # (Created ~/.config/zchat/sessions/default/history.json)
+
+        Store 'default' as user global session (to be used when session
+         is not specified or not set with --sp in the current shell.
+        $ z -n default --su # Store 'default' as user global session
+
+        $ z I can query unsafely too.
+        $ cat q.txt | z -
+
+        System prompt name (from system files or through 'persona' bin)
+         Here I'm specifying cat-talk as my session, and storing (-ss)
+         its active system prompt name as 'my-cat'
+        $ z --system my-cat --ss -n cat-talk -- "I stored my-cat in my 'session')
+
+        Provide a path to the system prompt, and store it default in
+         the 'cat-talk' session.
+        $ z --system-file here/sys.txt --ss -n cat-talk -- "And a query."
+        EOT
+    pagerdone($pager);
+    exit;
+}
+
+$verbose = $opt->verbose;
+set_verbose($verbose); # In Utils
+$verbose_resp = $opt->verbose_resp;
+
+if ($opt->help_pins) { show_help_file('pins.md'); exit; }
+if ($opt->help_cli) { show_help_file('cli.md'); exit; }
+if ($opt->help_cli_adv) { show_help_file('cli-adv.md'); exit; }
+
+if ($opt->help_sys_pin_vars) {
+    print <<~'EOT';
+
+        === For accessing as an array ($pins) ===
+        <: $pins.size ? '## Pinned Rules\n' : '' :>
+        : if $pins.size {
+        :   for $pins -> $x {
+        * <: $x :>
+        :   }
+        : }
+
+        === Using the concatenated string version ($pins_str) ===
+        ## Pinned Rules
+        <: $pins_str :>
+        EOT
+    exit;
+}
+
+if (defined $opt->system && $opt->system eq '') {
+    die "${bred}ERROR: --system cannot be empty. Use --clear-system-* to remove system prompts.$rst\n";
+}
+if (defined $opt->system_file && $opt->system_file eq '') {
+    die "${bred}ERROR: --system-file cannot be empty. Use --clear-system-* to remove system prompts.$rst\n";
+}
+if (defined $opt->system_persona && $opt->system_persona eq '') {
+    die "${bred}ERROR: --system-persona cannot be empty. Use --clear-system-* to remove system prompts.$rst\n";
+}
+
+## Wiping session chat history needs to know the session name.
+## But our session name could come from the current shell's settings,
+##  ..so we can't wipe-pproc (--csp) before we (-w):
+
+# Early session resolution before any wipe operations
+# Determine target session early, before any wipe operations that might affect resolution
+my $target_session;
+if ($opt->wipe || $opt->del_session) {
+    # Need to resolve session before wiping anything that affects resolution
+    $target_session = $opt->session // $ENV{ZCHAT_SESSION};
+    
+    # If still undefined, check shell config before we potentially wipe it
+    if (!defined $target_session && !$opt->del_pproc) {
+        # Only check shell config if we're not about to wipe it
+        my $shell_file = ZChat::Config::get_shell_config_file($opt->set_pproc);
+        if (-f $shell_file) {
+            my $shell_config = YAML::XS::LoadFile($shell_file);
+            $target_session = $shell_config->{session} if $shell_config;
+        }
+    }
+    
+    # Fall back to user config, then default
+    if (!defined $target_session) {
+        my $user_file = ZChat::Config::get_user_config_path();
+        if (-f $user_file) {
+            my $user_config = YAML::XS::LoadFile($user_file);
+            $target_session = $user_config->{session} if $user_config;
+        }
+    }
+    
+    $target_session //= 'default';
+    sel(2, "Resolved target session for wipe operations: $target_session");
+}
+
+# Now handle delete operations with known target session
+if ($opt->del_session) {
+    ZChat::del_session_config($target_session) or die "Failed to delete session: $!";
+    sel 1, "Deleted session '$target_session'";
+    $non_query_acts++;
+}
+
+if ($opt->del_pproc) {
+    ZChat::del_shell_config($opt->set_pproc) or die "Failed to delete shell config: $!";
+    sel 1, "Deleted shell config";
+    $non_query_acts++;
+}
+
+if ($opt->del_user) {
+    ZChat::del_user_config() or die "Failed to delete user config: $!";
+    sel 1, "Deleted user global config";
+    $non_query_acts++;
+}
+
+## END-WIPING
+
+# Parse input
+my $uprompt;
+my $opt_dash = 0;
+if (@ARGV) {
+    if ($ARGV[0] eq '-') {
+        local $/;
+        undef $/;
+        $uprompt = <STDIN>;
+        $uprompt = decode('UTF-8', $uprompt, Encode::FB_QUIET);
+        $opt_dash = 1;
+    } else {
+        $uprompt = join(' ', @ARGV);
+    }
+}
+
+# Echo handling
+if (defined $uprompt) {
+    if ($opt->echo_delineated) {
+        print "<echo>", $uprompt, ($uprompt !~ /\n$/ ? "\n" : ''), "</echo>\n";
+        $non_query_acts++;
+    } elsif ($opt->echo1) {
+        print $uprompt, ($uprompt !~ /\n$/ ? "\n" : '');
+        $non_query_acts++;
+    }
+}
+
+# # Validate system prompt options
+# # I think this is handled in the module now.
+# my @conflict_pairs = qw(system system-file system-string system-persona);
+# for my $i (0 .. $#conflict_pairs+1) {
+#     for my $j ($i+1 .. $#conflict_pairs+1) {
+#         my $a = $conflict_pairs[$i];
+#         my $b = $conflict_pairs[$i];
+#         if ($opt->_specified($a) && $opt->_specified($b)) {
+#             $a =~ s/_/-/g; # Done with them, just reuse
+#             $b =~ s/_/-/g;
+#             die "${bred}ERROR: Cannot use both --$a and --$b simultaneously$rst\n";
+#         }
+#     }
+# }
+
+# Handle images and clipboard
+my @image_data;
+my $use_images = 0;
+
+if ($opt->clipboard) {
+    my $clip_data = Clipboard->paste;
+    
+    if ($clip_data =~ /^\xFF\xD8/) {  # JPEG binary
+        my $image_id = 'img';
+        my $base64_image = encode_base64($clip_data);
+        push @image_data, { id => $image_id, data => $base64_image };
+        $use_images = 1;
+    } elsif ($clip_data =~ /^\p{IsPrint}/) {  # Text
+        if (defined $uprompt) {
+            die "${bred}ERROR: --clipboard and query are not compatible$rst\n";
+        }
+        $uprompt = encode_utf8($clip_data);
+    } else {
+        die "${bred}ERROR: Unsupported clipboard content$rst\n";
+    }
+}
+
+if ($opt->image) {
+    for my $index (0..$#{$opt->image}) {
+        my $image_path = $opt->image->[$index];
+        unless (-e $image_path) {
+            die "${bred}ERROR: Image file not found: $image_path$rst\n";
+        }
+
+        # Check if Image::Magick is available
+        unless (eval "require Image::Magick; 1") {
+            die "${bred}ERROR: Image::Magick not available. Install with: cpanm Image::Magick$rst\n";
+        }
+        
+        my $image = Image::Magick->new;
+        $image->Read($image_path);
+        my $base64_image = encode_base64($image->ImageToBlob());
+
+        my $image_id = (@{$opt->image} == 1) ? 'img' : "img-" . ($index + 1);
+        my $ora = a24fg(255,128,30);
+        sel 1, "${ora}Attaching image ${whi}$image_id$ora, Base64 len: " . length($base64_image);
+        
+        push @image_data, { id => $image_id, data => $base64_image };
+    }
+    $use_images = 1;
+}
+
+my $zchat = ZChat->new(
+    session => $opt->session // '',
+    verbose => $verbose,
+    override_pproc => $opt->set_pproc,
+    system_string => $opt->system_string,
+    system_file => $opt->system_file,
+    system_persona => $opt->system_persona,
+    system => $opt->system,
+);
+
+
+# Apply configuration/storage changes early (before any blocking/editor work)
+if ($opt->store_user || $opt->store_session || $opt->store_pproc) {
+    my %store_opts;
+    
+    # System prompt options
+    $store_opts{system_string}  = $opt->system_string     if defined $opt->system_string;
+    $store_opts{system_file}    = $opt->system_file    if defined $opt->system_file;
+    $store_opts{system_persona} = $opt->system_persona if defined $opt->system_persona;
+    $store_opts{system}         = $opt->system         if defined $opt->system;
+    
+    # Pin options
+    $store_opts{pin_shims}      = { user=>$opt->pin_shim, assistant=>$opt->pin_shim } if defined $opt->pin_shim;
+    $store_opts{pin_tpl_user}   = $opt->pin_tpl_user   if defined $opt->pin_tpl_user;
+    $store_opts{pin_tpl_ast}    = $opt->pin_tpl_ast    if defined $opt->pin_tpl_ast;
+    $store_opts{pin_mode_sys}   = $opt->pin_mode_sys   if defined $opt->pin_mode_sys;
+    $store_opts{pin_mode_user}  = $opt->pin_mode_user  if defined $opt->pin_mode_user;
+    $store_opts{pin_mode_ast}   = $opt->pin_mode_ast   if defined $opt->pin_mode_ast;
+    
+    if ($opt->store_user) {
+        # User config can store session name
+        $store_opts{session} = $opt->session if defined $opt->session;
+        $zchat->store_user_config(\%store_opts);
+        sel(1, "Stored user config: ", join(", ", map { "$_ => $store_opts{$_}" } sort keys %store_opts)) if %store_opts;
+        $non_query_acts++;
+    }
+    
+    if ($opt->store_session) {
+        # Session config never stores its own session name
+        my %session_opts = %store_opts;
+        delete $session_opts{session};
+        $zchat->store_session_config(\%session_opts);
+        sel(1, "Stored session config: ", join(", ", sort keys %session_opts)) if %session_opts;
+        $non_query_acts++;
+    }
+    
+    if ($opt->store_pproc) {
+        # Shell config can store session name AND system prompt options
+        my %shell_opts = ( session => ($opt->session // $zchat->get_session_name()) );
+        
+        # Get resolved system prompt options from ZChat instead of using raw CLI options
+        my $resolved_opts = $zchat->get_resolved_cli_options();
+        
+        # Store resolved options (system gets converted to system_file or system_persona)
+        $shell_opts{system_string}  = $resolved_opts->{system_string}  if defined $resolved_opts->{system_string};
+        $shell_opts{system_file}    = $resolved_opts->{system_file}    if defined $resolved_opts->{system_file};
+        $shell_opts{system_persona} = $resolved_opts->{system_persona} if defined $resolved_opts->{system_persona};
+        
+        # Only store raw system if it wasn't resolved (shouldn't happen normally)
+        $shell_opts{system} = $resolved_opts->{system} if defined $resolved_opts->{system};
+        
+        $zchat->store_shell_config(\%shell_opts);
+        
+        my @stored_items = ('session');
+        push @stored_items, 'system_string'  if defined $resolved_opts->{system_string};
+        push @stored_items, 'system_file'    if defined $resolved_opts->{system_file};
+        push @stored_items, 'system_persona' if defined $resolved_opts->{system_persona};
+        push @stored_items, 'system'         if defined $resolved_opts->{system};
+        
+        sel 1, "Saved " . join(', ', @stored_items) . " for current shell (session: '$shell_opts{session}')";
+        $non_query_acts++;
+        # We still have wiping and other things that might need to be done. Don't exit
+    }
+}
+
+$zchat->set_print(1); # Module default is silent.
+
+if ($opt->status) { $zchat->show_status($verbose); exit; }
+
+# This is redundant. zchat->new is handling this (or at least it should be)
+# Also, these aren't used for later resolution so they fail to serve their primary purpose anyway.
+# This area should be removed entirely (according to claude).
+# # System prompt setters from CLI (provenance=CLI)
+# if (defined $opt->system_file)    { $zchat->system->set_file($opt->system_file, { scope => 'CLI' }) }
+# if (defined $opt->system_string)     { $zchat->system->set_str($opt->system_string, { scope => 'CLI' }) }
+# if (defined $opt->system_persona) { $zchat->system->set_persona($opt->system_persona, { scope => 'CLI' }) }
+# $DB::single=1;
+# if (defined $opt->system)         { $zchat->system->set_auto($opt->system, { scope => 'CLI' }) }
+
+# Thought removal policy from CLI
+if ($opt->thought && ($opt->thought_re//0)) {
+    die "Conflict trying to both enable thoughts (--thought) and providing a removal regex (--thought-re).\n";
+}
+if ($opt->thought) {
+    $zchat->set_thought({mode => 'disabled'});
+} elsif ($opt->thought_re) {
+    $zchat->set_thought({mode => 'enabled', pattern => $opt->thought_re});
+} else {
+    # Default: auto-detect from system prompt  
+    $zchat->set_thought({mode => 'auto'});
+}
+
+# History mode mapping
+if ($opt->no_history) { $zchat->history->set_mode('none') }
+elsif ($opt->input_only) { $zchat->history->set_mode('ro') }
+else { $zchat->history->set_mode('rw') }
+
+# Wipe (on-disk history)
+if ($opt->wipe) {
+    if (defined $target_session) {
+        # Use pre-resolved session for consistency
+        ZChat::wipe_session_history($target_session);
+        sel 1, "${yel}Conversation history wiped for session '$target_session'.$rst";
+    } else {
+        # Normal path - let ZChat resolve it
+        $zchat->history->wipe();
+        sel 1, "${yel}Conversation history wiped.$rst";
+    }
+    $non_query_acts++;
+} elsif ($opt->wipeold) { # Wipe old messages
+    $zchat->history->load();
+    my $removed_count = eval { $zchat->history->wipeold($opt->wipeold) };
+    if ($@) {
+        die "${bred}ERROR: $@$rst";
+    }
+    $zchat->history->save();
+    sel 1, "${yel}Removed $removed_count messages older than $opt->wipeold$rst";
+    $non_query_acts++;
+}
+
+# Utility: list system prompts
+if ($opt->list_sys) {
+    my $ls = $zchat->list_system_prompts();
+    say "System files" . ($ls->{dir} ? " ($ls->{dir})" : "") . ":";
+    if (@{$ls->{files}}) { say map { "  $_" } @{$ls->{files}} } else { say "  (none found)" }
+    say "Personas:";
+    if (@{$ls->{personas}}) { say map { "  $_" } @{$ls->{personas}} } else { say "  (none found or persona tool unavailable)" }
+    exit;
+}
+
+if ($opt->token_count) {
+    my $input_text = $uprompt // '';
+    if ($input_text eq '') {
+        say 1;  # Empty input = 1 token
+    } else {
+        my $token_count = $zchat->{core}->count_tokens($input_text);
+        say $token_count;
+    }
+    $non_query_acts++;
+    $uprompt = undef;
+}
+
+if ($opt->tokens_full) {
+    my $input_text = $uprompt // '';
+    die "${bred}No input text provided$rst\n" if $input_text eq '';
+    
+    my @tokens = $zchat->{core}->tokenize($input_text, { with_pieces => 1 });
+    my $json = JSON::XS->new->utf8->canonical(1)->encode(\@tokens);
+    say $json;
+    $non_query_acts++;
+}
+
+if ($opt->ctx) {
+    my $n_ctx = $zchat->{core}->get_n_ctx();
+    say $n_ctx;
+    $non_query_acts++;
+}
+
+if ($opt->metadata) {
+    my $model_info = $zchat->{core}->get_model_info();
+    for my $key (sort keys %$model_info) {
+        say "$key -> $model_info->{$key}";
+    }
+    $non_query_acts++;
+}
+
+# Pin management commands
+if ($opt->pins_list) {
+    my $pins = $zchat->list_pins();
+    if (@$pins) {
+        for my $i (0..$#$pins) {
+            my $pin = $pins->[$i];
+            say "$i: [$pin->{role}/$pin->{method}] $pin->{content}";
+        }
+    } else {
+        sel 1, "pins-list: No pins found.";
+    }
+    $non_query_acts++;
+}
+
+if ($opt->pins_sum) {
+    my $max_len = $opt->pin_sum_len // 80;
+    my $summaries = $zchat->{pin_mgr}->get_pins_summary($max_len);
+    if (@$summaries) {
+        say $_ for @$summaries;
+    } else {
+        sel 1, "pins-sum: No pins found.";
+    }
+    $non_query_acts++;
+}
+
+if ($opt->pins_cnt) {
+    my $total_pins = $zchat->{pin_mgr}->get_pin_count();
+    say $total_pins;
+    $non_query_acts++;
+}
+
+if ($opt->pins_clear) {
+    $zchat->clear_pins();
+    sel 1, "All pins cleared.";
+    $non_query_acts++;
+}
+
+if ($opt->pin_rm) {
+    my @indices = @{$opt->pin_rm};
+    
+    # Validate all indices first
+    my ($valid, $error) = $zchat->validate_pin_indices(@indices);
+    die "Pin removal validation failed: $error\n" unless $valid;
+    
+    # Sort in reverse order to avoid index shifting
+    @indices = sort { $b <=> $a } @indices;
+    
+    my $removed = 0;
+    for my $index (@indices) {
+        if ($zchat->remove_pin($index)) {
+            $removed++;
+        } else {
+            warn "Failed to remove pin at index $index";
+        }
+    }
+    sel 1, "Removed $removed pin(s).";
+    $non_query_acts++;
+}
+
+if ($opt->pins_clear_sys || $opt->pins_clear_user || $opt->pins_clear_ast) {
+    my $did = 0;
+    if ($opt->pins_clear_sys) {
+        $did += $zchat->{pin_mgr}->clear_pins_by_role('system');
+        $non_query_acts++;
+    }
+    if ($opt->pins_clear_user) {
+        $did += $zchat->{pin_mgr}->clear_pins_by_role('user');
+        $non_query_acts++;
+    }
+    if ($opt->pins_clear_ast) {
+        $did += $zchat->{pin_mgr}->clear_pins_by_role('assistant');
+        $non_query_acts++;
+    }
+    sel 1, "Cleared role-specific pins." if $did;
+}
+
+if ($opt->pin_write) {
+    # Parse and validate all pin-write operations first
+    my @operations;
+    for my $write_spec (@{$opt->pin_write}) {
+        if ($write_spec =~ /^(-?\d+)=(.*)$/) {
+            push @operations, { index => $1, content => $2 };
+        } else {
+            die "Invalid --pin-write format '$write_spec'. Use: --pin-write 'INDEX=content'\n";
+        }
+    }
+    
+    # Validate all indices exist
+    my @indices = map { $_->{index} } @operations;
+    my ($valid, $error) = $zchat->validate_pin_indices(@indices);
+    die "Pin write validation failed: $error\n" unless $valid;
+    
+    # Perform all updates
+    my $updated = 0;
+    for my $op (@operations) {
+        if ($zchat->update_pin($op->{index}, $op->{content})) {
+            sel 1, "Updated pin $op->{index}";
+            $updated++;
+        } else {
+            warn "Failed to update pin at index $op->{index}";
+        }
+    }
+    sel 1, "Updated $updated pin(s).";
+    $non_query_acts++;
+}
+
+# Add pins from CLI options
+if ($opt->pin) {
+    my $new_pin_cnt=0;
+    for my $pin_content (@{$opt->pin}) {
+        $zchat->pin($pin_content);
+        $new_pin_cnt++;
+    }
+    sel 1, "--pin: Added $new_pin_cnt new pins";
+    $non_query_acts++;
+}
+
+if ($opt->pins_file) {
+    my $new_pin_cnt=0;
+    my $new_pins_files=0;
+    for my $pins_file (@{$opt->pins_file}) {
+        unless (-e $pins_file && -r $pins_file) {
+            die "${bred}ERROR: Pin file not found or readable: $pins_file$rst\n";
+        }
+        my $items = load_pipes_file($pins_file);   # ARRAY of hashes/UA pairs
+        $new_pins_files++;
+        for my $it (@$items) {
+            if (ref($it) eq 'HASH' && exists $it->{role} && exists $it->{content}) {
+                $zchat->pin($it->{content}, {
+                    role => $it->{role},
+                    method => ($it->{method}//'msg'),
+                });
+                $new_pin_cnt++;
+            } else {
+                # Treat as UA pair (pipes reader yields {user,assistant})
+                if (defined $it->{user} && $it->{user} ne '') {
+                    $zchat->pin($it->{user}, {
+                        role=>'user',
+                        method=>'msg',
+                    });
+                    $new_pin_cnt++;
+                };
+                if (defined $it->{assistant} && $it->{assistant} ne '') {
+                    $zchat->pin($it->{assistant}, {
+                        role=>'assistant',
+                        method=>'msg',
+                    });
+                    $new_pin_cnt++;
+                }
+            }
+        }
+    }
+    sel 1, "--pins-file: Added $new_pin_cnt new pins from $new_pins_files files";
+    $non_query_acts++;
+}
+
+# Direct role-specific pins
+my $new_pin_track=0;
+for my $s (@{ $opt->pin_sys  // [] }) {
+    $zchat->pin($s, { role=>'system', method=>'concat' } );
+    $new_pin_track++;
+    $non_query_acts++;
+}
+sel 1, "--pin-sys: Added $new_pin_track system pins (concat mode)" if $new_pin_track;
+
+$new_pin_track=0;
+for my $s (@{ $opt->pin_user // [] }) {
+    $zchat->pin($s, { role=>'user',   method=>'msg' } );
+    $new_pin_track++;
+    $non_query_acts++;
+}
+sel 1, "--pin-user: Added $new_pin_track user pins (msg mode)" if $new_pin_track;
+
+$new_pin_track=0;
+for my $s (@{ $opt->pin_ast  // [] }) {
+    $zchat->pin($s, { role=>'assistant', method=>'msg' } );
+    $new_pin_track++;
+    $non_query_acts++;
+}
+sel 1, "--pin-ast: Added $new_pin_track assistant pins (msg mode)" if $new_pin_track;
+
+# UA pipe: "user|||assistant"
+$new_pin_track=0;
+for my $pair (@{ $opt->pin_ua_pipe // [] }) {
+    my $new_pin_cnt=0;
+    my ($u,$a) = split(/\|\|\|/, $pair, 2);
+    $u = '' unless defined $u; $a = '' unless defined $a;
+    if (length $u) {
+        $zchat->pin($u, { role=>'user', method=>'msg' });
+        $new_pin_track++;
+        sel 2, "--pin-ua-pipe: Adding user pin (msg mode)";
+    }
+    if (length $a) {
+        $zchat->pin($a, { role=>'assistant', method=>'msg' });
+        $new_pin_track++;
+        sel 2, "--pin-ua-pipe: Adding assistant pin (msg mode)";
+    }
+    $non_query_acts++;
+}
+sel 1, "--pin-ua-pipe: Added $new_pin_track user/assistant pins." if $new_pin_track;
+
+# UA JSON: {"user":"...","assistant":"..."}
+$new_pin_track=0;
+for my $json (@{ $opt->pin_ua_json // [] }) {
+    my $obj = eval { JSON::XS->new->decode($json) } // {};
+    if (ref($obj) eq 'HASH') {
+        if (defined $obj->{user} && $obj->{user} ne '') {
+            $zchat->pin($obj->{user}, { role=>'user', method=>'msg' });
+            $new_pin_track++;
+        }
+        if (defined $obj->{assistant} && $obj->{assistant} ne '') {
+            $zchat->pin($obj->{assistant}, { role=>'assistant', method=>'msg' });
+            $new_pin_track++;
+        }
+    } else {
+        warn "Ignoring invalid --pin-ua-json payload";
+    }
+    $non_query_acts++;
+}
+sel 1, "--pin-ua-json: Added $new_pin_track user/assistant pins." if $new_pin_track;
+$new_pin_track=0; # No more using it but reset for safety
+
+# History management
+if ($opt->wipe) {
+    if ($opt->input_only) {
+        # This may be unexpected behavior so notify
+        sel 0, "Input-only mode - wiping only in memory.";
+    } elsif ($opt->no_history) {
+        # This may be unexpected behavior so notify
+        sel 0, "No-history mode - wiping only in memory.";
+    } else {
+        # Already wiped earlier.
+    }
+    # exit unless defined $uprompt; # Other options might still be requested
+}
+
+# Overwrite last message for a specific role (does not affect pins)
+if (my $role_to_overwrite = $opt->owrite_last) {
+    die "Input-only was selected (-I). Overwriting it makes no sense.\n" if $opt->input_only;
+    die "No-history was selected (-H). Overwriting it makes no sense.\n" if $opt->no_history;
+    die "--owrite-last requires a prompt (from stdin or arguments) to use as the new content.\n"
+        unless defined $uprompt && $uprompt ne '';
+
+    $role_to_overwrite = 'user'      if $role_to_overwrite eq 'u';
+    $role_to_overwrite = 'assistant' if $role_to_overwrite eq 'a';
+    die "--owrite-last must be one of: (u|user|a|assistant).\n"
+        unless $role_to_overwrite =~ /^(user|assistant)$/;
+
+    # Use cleaner API method
+    $zchat->history->load();
+    die "Cannot --owrite-last: conversation history is empty.\n" if $zchat->history->empty();
+    
+    my $last = $zchat->history->get_last({role => $role_to_overwrite});
+    die "Cannot --owrite-last: No '$role_to_overwrite' message found to overwrite.\n" unless $last;
+    
+    $zchat->history_owrite_last($uprompt, { role => $role_to_overwrite });
+    sel 1, "Successfully overwrote last '$role_to_overwrite' message in history.";
+    $non_query_acts++;
+}
+
+# Output last message content (to stdout or a file)
+if (defined $opt->output_last || defined $opt->conv_last) {
+    my $dest = ($opt->output_last//0) ? '-' : $opt->conv_last;
+    die "ERROR: Request for --output-last while also providing a query. We don't know how to resolve the mixed output. Aborting."
+        if defined $uprompt;
+    
+    $zchat->history->load();
+    die "Conversation history is empty; nothing to output.\n" if $zchat->history->empty();
+    
+    my $last = $zchat->history->get_last();
+    my $content = $last->{assistant} ? $last->{assistant}{content} : ($last->{user} ? $last->{user}{content} : '');
+    
+    if ($dest eq '-') {
+        print $content;
+        print "\n" if $content !~ /\n$/;
+    } else {
+        my $path = ($dest =~ /^-(.+)$/) ? $1 : $dest;
+        write_file($path, $content, { umask=>0177, makepath=>1 })
+            or die "Error writing last message to '$path'\n";
+        sel 1, "Wrote last message to $path";
+    }
+    $non_query_acts++;
+}
+
+# Show session info
+sel 1, "${clr_notice_bg}${clr_notice_fg}Session: " . $zchat->get_session_name() . "$rst";
+
+# Edit history: User will be in their EDITOR. We should have handled all
+# our actions writing data out before we get blocked in the editor run.
+if ($opt->edit_hist) {
+    die "Input-only mode - editing makes no sense\n" if $opt->input_only;
+    die "No-history mode - editing makes no sense\n" if $opt->no_history;
+    
+    my $session_name = $zchat->get_session_name();
+    my $session_dir = $zchat->{storage}->get_session_dir($session_name);
+    my $history_file = File::Spec->catfile($session_dir, 'history.json');
+    
+    system($editor, '--', $history_file);
+    sel 0, "Exiting after editing.";
+    exit;
+}
+
+# Validate we have input for completion
+my $intmode = $opt->interactive;
+if (!$intmode && !defined $uprompt) {
+    if ($non_query_acts++) {
+        if (!-t && !$opt_dash) {
+            swarn "z: Input not from terminal but '-' not specified. ($non_query_acts actions have been performed.)";
+        }
+        exit; # They performed some actions deliberately. Exit silently.
+    } else {
+        swarn "No query provided. See -h or use -i for interactive mode.";
+        exit;
+    }
+}
+
+# Disable colors in non-interactive mode
+if (!$intmode || $opt->no_color) {
+    $clr_user = '';
+    $clr_sys = '';
+}
+
+if (defined $uprompt && length $uprompt) {
+    tts_str($uprompt) if $opt->play_user;
+    my $response = $zchat->query($uprompt, { stream=>1 } );
+    if ($opt->play_resp) {
+        eval { play_tts($response) };   # or whatever your fn is called
+        warn "Audio error: $@" if $@;
+    }
+}
+
+exit if !$intmode;
+
+# my $response = $zchat->query($uprompt, { stream=>1 } ) if defined $uprompt;
+my $term;
+$term = Term::ReadLine->new("z") or die "Cannot create Term::ReadLine object";
+my $readline_histfile = $zchat->{config}->get_readline_filename();
+$term->ReadHistory($readline_histfile) if -e $readline_histfile;
+
+# Set up color reset on enter
+$term->add_defun("accept-line", sub {
+    my ($count, $key) = @_;
+    print "$rst";
+    $term->call_function("accept-line", $count, $key);
+}, ord("\n"));
+
+while (1) {
+    my $line = $term->readline($intmode_prompt);
+    print "$rst";
+    last if !defined($line);
+    next if $line eq '';
+
+    $term->write_history($readline_histfile);
+
+    tts_str($line) if $opt->play_user; # TTS user input
+        
+    # # Add images to user input if present
+    # if (@image_data) {
+    #     # For now, just mention images in prompt
+    #     my @img_mentions;
+    #     for my $img (@image_data) {
+    #         push @img_mentions, "[$img->{id}]";
+    #     }
+    #     $uprompt .= "\n\nImages attached: " . join(", ", @img_mentions);
+    # }
+    
+    # Make completion request
+    print $clr_sys;
+    my $response = $zchat->query($line, { stream=>1 } );
+    say $rst if $intmode;
+    tts_str($response) if $opt->play_resp; # TTSresponse
+}
+
+# Input history should always have been written immediately after valid input
+# $term->write_history($readline_histfile);
+exit;
+
+# Utility functions
+sub tts_str {
+    my $str = shift;
+    open(my $ttsf, "|-", @cmd_tts) || die "Couldn't execute TTS: $cmd_tts[0]: $!";
+    print $ttsf $str;
+    close $ttsf;
+}
+
+__END__
+
+=head1 NAME
+
+z - Command-line interface to ZChat LLM system
+
+=head1 SYNOPSIS
+
+    # Basic usage
+    z "Hello, how are you?"
+    
+    # Choose/override a system prompt
+    z --system-file prompts/coding.md "Write a Perl function"
+    z --system-str  "You are terse"    "Refactor this module"
+    z --system-persona reviewer         "Do a design review"
+
+    # Interactive mode
+    z -i
+    
+    # Pin management
+    z --pin "You are a helpful assistant" --pins-list
+    z --pins-sum
+    z --pins-clear
+    
+    # Session management  
+    z -n myproject/analysis "What should I focus on?"
+    z --system-file prompts/base.md -S              # Store in user global config
+    z -n project --system-str "Prefer REST" --ss   # Store in current session
+    
+    # Images
+    z --img photo.jpg "What's in this image?"
+    z --clipboard  # Use clipboard content
+    
+    # Utility
+    z -T "Count tokens in this text"
+    z --ctx  # Show model context size
+    z --list-sys | -L  # List file and 'persona'-based system prompts
+
+=head1 DESCRIPTION
+
+Command-line interface to the ZChat modular LLM system. Supports
+conversation history, pinned messages, sessions, and more.  System prompts
+are sourced from files, literal strings, or personas with clear precedence.
+
+=cut
+# vim: et
