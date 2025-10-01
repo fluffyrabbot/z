@@ -111,19 +111,19 @@ sub demonstrate_basic_usage() {
         "The most basic usage is a simple query:\n" .
         "  z 'Hello, how are you?'\n\n" .
         "This will:\n" .
-        "  • Use the 'default' session\n" .
-        "  • Apply your system prompt\n" .
-        "  • Store the conversation in history\n" .
-        "  • Return the LLM's response"
+        "  - Use the 'default' session\n" .
+        "  - Apply your system prompt\n" .
+        "  - Store the conversation in history\n" .
+        "  - Return the LLM's response"
     );
     
     print_section("Interactive Mode", 
         "For extended conversations, use interactive mode:\n" .
         "  z -i\n\n" .
         "This gives you a persistent chat session with:\n" .
-        "  • Command history (up/down arrows)\n" .
-        "  • Persistent conversation context\n" .
-        "  • Easy exit with Ctrl+D or Ctrl+C"
+        "  - Command history (up/down arrows)\n" .
+        "  - Persistent conversation context\n" .
+        "  - Easy exit with Ctrl+D or Ctrl+C"
     );
     
     wait_for_user();
@@ -139,9 +139,9 @@ sub demonstrate_session_management() {
         "  z -n personal/learning 'Explain quantum computing'\n" .
         "  z -n debugging/auth 'Fix the login bug'\n\n" .
         "Each session maintains its own:\n" .
-        "  • Conversation history\n" .
-        "  • Pinned messages\n" .
-        "  • System prompt settings"
+        "  - Conversation history\n" .
+        "  - Pinned messages\n" .
+        "  - System prompt settings"
     );
     
     print_section("Session Hierarchy", 
@@ -164,10 +164,10 @@ sub demonstrate_pin_system() {
     print_section("What are Pins?", 
         "Pins are persistent messages that get injected into every conversation.\n" .
         "They're perfect for:\n" .
-        "  • Consistent behavior ('Be terse and precise')\n" .
-        "  • Project context ('This is a Perl project')\n" .
-        "  • Few-shot examples (user|||assistant pairs)\n" .
-        "  • Current information (project status, requirements)"
+        "  - Consistent behavior ('Be terse and precise')\n" .
+        "  - Project context ('This is a Perl project')\n" .
+        "  - Few-shot examples (user|||assistant pairs)\n" .
+        "  - Current information (project status, requirements)"
     );
     
     print_section("Pin Types", 
@@ -201,11 +201,11 @@ sub demonstrate_configuration() {
         "ZChat uses a sophisticated precedence system:\n\n" .
         "System Defaults → User Global → Environment → Shell Session → Session Specific → CLI\n\n" .
         "This means:\n" .
-        "  • CLI flags override everything (temporary)\n" .
-        "  • Session settings override user defaults\n" .
-        "  • Shell settings override user defaults for this terminal\n" .
-        "  • User settings override system defaults\n" .
-        "  • System defaults provide sensible fallbacks"
+        "  - CLI flags override everything (temporary)\n" .
+        "  - Session settings override user defaults\n" .
+        "  - Shell settings override user defaults for this terminal\n" .
+        "  - User settings override system defaults\n" .
+        "  - System defaults provide sensible fallbacks"
     );
     
     print_section("Storage Scopes", 
@@ -234,9 +234,9 @@ sub demonstrate_advanced_features() {
     
     print_section("Streaming Responses", 
         "ZChat supports real-time streaming responses:\n" .
-        "  • Immediate feedback as the LLM generates text\n" .
-        "  • Automatic thought pattern removal for reasoning models\n" .
-        "  • Configurable streaming behavior"
+        "  - Immediate feedback as the LLM generates text\n" .
+        "  - Automatic thought pattern removal for reasoning models\n" .
+        "  - Configurable streaming behavior"
     );
     
     print_section("Multi-Modal Support", 
@@ -275,9 +275,9 @@ sub demonstrate_programmatic_api() {
         "\$z->pin('Generate executive summaries');\n" .
         "my \$response = \$z->query('Analyze this data');\n\n" .
         "Perfect for:\n" .
-        "  • Automated report generation\n" .
-        "  • Batch processing\n" .
-        "  • Integration with other Perl tools"
+        "  - Automated report generation\n" .
+        "  - Batch processing\n" .
+        "  - Integration with other Perl tools"
     );
     
     print_section("Configuration Management", 
@@ -341,15 +341,15 @@ sub run_interactive_demo() {
     say "";
     
     say "Now let's try a query with these pins active:";
-    say "Query: 'What is ZChat?'";
+    say "Query: 'Explain the concept of recursion in programming'";
     say "";
     
     # This would normally make an actual LLM call
     say "In a real session, this would make an LLM request with:";
-    say "  • System prompt with pinned system message";
-    say "  • User pin as context";
-    say "  • Assistant pin as example";
-    say "  • Your query: 'What is ZChat?'";
+    say "  - System prompt with pinned system message";
+    say "  - User pin as context";
+    say "  - Assistant pin as example";
+    say "  - Your query: 'Explain the concept of recursion in programming'";
     say "";
     
     say "The response would be streamed in real-time and stored in history.";
