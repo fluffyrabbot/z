@@ -221,7 +221,8 @@ sub demonstrate_advanced_features() {
         "Image support via clipboard or files:\n" .
         "  z --clipboard 'What's in this image?'\n" .
         "  z --img photo.jpg 'Analyze this image'\n\n" .
-        "Automatic detection of image vs text clipboard content"
+        "Automatic detection of image vs text clipboard content\n" .
+        "Cross-platform clipboard support (WSL2, Linux, macOS, Windows)"
     );
     
     print_section("Token Management", 

@@ -40,6 +40,23 @@ cd z
 ./install.sh
 ```
 
+**Installation Options:**
+- `./install.sh` - Smart installation with environment detection (default)
+- `./install.sh --minimal` - Core dependencies only
+- `./install.sh --standard` - Standard installation with interactive prompts
+- `./install.sh --bundle` - Create static bundle (self-contained) [RECOMMENDED]
+- `./install.sh --single` - Create single executable (PAR Packer)
+- `./install.sh --platform` - Create platform-specific bundles
+- `./install.sh --optimized` - Create size-optimized bundle
+- `./install.sh --repair` - Repair existing installation
+
+**Installation Features:**
+- **Robust error handling** - Optional module failures don't break installation
+- **Cross-platform clipboard support** - Works in WSL2, Linux, macOS, and Windows
+- **Progress indicators** - Beautiful progress bars for all installation steps
+- **Smart dependency management** - Distinguishes between required and optional modules
+- **System dependency installation** - Automatically installs xclip for clipboard support
+
 ### Basic Usage
 ```bash
 # Simple query
@@ -418,6 +435,8 @@ Images are seamlessly integrated with base64 encoding and proper API formatting.
 ```bash
 z --img photo.jpg "What's in this image?"
 z --clipboard      # Automatically detects image vs text clipboard content
+# Note: In WSL2, clipboard requires xclip (installed automatically)
+# Clipboard functionality works across different environments (WSL2, Linux, macOS)
 ```
 
 ## Usage Examples
@@ -636,7 +655,14 @@ Dependencies are standard CPAN modules that most Perl installations include.
 For missing modules:
 
 ```bash
-cpan install Mojo::UserAgent JSON::XS YAML::XS Text::Xslate Image::Magick Clipboard
+# Core dependencies (required)
+cpan install Mojo::UserAgent JSON::XS YAML::XS Getopt::Long::Descriptive URI::Escape Data::Dumper String::ShellQuote File::Slurper File::Copy File::Temp File::Compare Carp Term::ReadLine Capture::Tiny LWP::UserAgent
+
+# Optional dependencies (enhanced features)
+cpan install Image::Magick Text::Xslate Term::ReadLine::Gnu Term::Size
+
+# System dependencies (WSL2/Linux)
+sudo apt-get install xclip build-essential libssl-dev
 ```
 
 ### Configuration

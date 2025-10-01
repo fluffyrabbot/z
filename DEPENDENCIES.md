@@ -9,8 +9,9 @@ These modules are essential for ZChat to run:
 - **Mojo::UserAgent** - HTTP client for LLM API communication
 - **JSON::XS** - Fast JSON parsing and generation
 - **YAML::XS** - YAML configuration file handling
-- **Text::Xslate** - Template engine for system prompts
-- **Clipboard** - Clipboard access for --clipboard functionality
+- **xclip** - Clipboard access for --clipboard functionality (WSL2/Linux)
+  - Note: `wl-copy`/`wl-paste` (Wayland) doesn't work in WSL2
+  - WSL2 uses X11/WSLg, so `xclip` is the correct clipboard tool
 
 ## Standard Library Dependencies
 
@@ -31,8 +32,6 @@ These are typically included with Perl but may need explicit installation:
 Required for interactive mode and terminal operations:
 
 - **Term::ReadLine** - Command-line editing and history
-- **Term::ReadLine::Gnu** - GNU ReadLine support
-- **Term::Size** - Terminal size detection
 
 ## Utility Dependencies
 
@@ -48,15 +47,49 @@ These modules enable additional features but are not required:
 - **Image::Magick** - Image processing for --img functionality
   - Enables: `z --img photo.jpg "What's in this image?"`
   - Enables: `z --clipboard` with image content
+  - Note: Requires ImageMagick system libraries, often fails to install
+
+- **Text::Xslate** - Template engine for system prompts
+  - Enables: Advanced prompt templating features
+  - Note: Requires C++ compiler, can fail on minimal systems
+
+- **Term::ReadLine::Gnu** - Enhanced GNU ReadLine support
+  - Enables: Advanced command-line editing features
+  - Note: Requires GNU ReadLine development libraries
+
+- **Term::Size** - Terminal size detection
+  - Enables: Dynamic terminal-aware formatting
+  - Note: May fail on some terminal environments
 
 ## System Dependencies
 
 Required system packages:
 
-- **Build tools**: `build-essential`, `gcc`, `make`
-- **SSL libraries**: `libssl-dev`
+- **Build tools**: `build-essential`, `gcc`, `make`, `pkg-config`
+- **SSL libraries**: `libssl-dev`, `libcrypto`
 - **Network tools**: `curl`, `wget`
+- **Terminal libraries**: `libreadline-dev`, `libncurses-dev`
+- **Compression**: `zlib1g-dev`
 - **ImageMagick** (if using Image::Magick): `libmagickwand-dev`, `imagemagick`
+
+## Platform-Specific Dependencies
+
+### Clipboard Support
+- **WSL2/Linux X11**: `xclip` (automatically installed)
+- **Linux Wayland**: `wl-clipboard` (wl-paste/wl-copy)
+- **macOS**: `pbpaste` (built-in)
+- **Windows**: `powershell` (built-in)
+
+### Terminal Support
+- **Enhanced ReadLine**: `libreadline-dev` (for Term::ReadLine::Gnu)
+- **Terminal Size**: `libncurses-dev` (for Term::Size)
+- **Color Support**: Detected automatically
+
+### Build Environment
+- **Compiler**: `gcc` 4.9+ or `clang` 3.5+
+- **Make**: `make` 4.0+
+- **pkg-config**: For library detection
+- **Development Headers**: Automatically detected and installed
 
 ## Installation Commands
 
@@ -67,7 +100,7 @@ sudo apt-get install build-essential libssl-dev curl wget
 
 # Install Perl modules
 eval $(perl -I ~/perl5/lib/perl5/ -Mlocal::lib)
-cpanm Mojo::UserAgent JSON::XS YAML::XS Text::Xslate Clipboard Getopt::Long::Descriptive URI::Escape Data::Dumper String::ShellQuote File::Slurper File::Copy File::Temp File::Compare Carp Term::ReadLine Term::ReadLine::Gnu Capture::Tiny LWP::UserAgent Term::Size
+cpanm Mojo::UserAgent JSON::XS YAML::XS Text::Xslate Getopt::Long::Descriptive URI::Escape Data::Dumper String::ShellQuote File::Slurper File::Copy File::Temp File::Compare Carp Term::ReadLine Term::ReadLine::Gnu Capture::Tiny LWP::UserAgent Term::Size
 ```
 
 ### With Image Processing

@@ -13,7 +13,7 @@ else
 fi
 
 # Installation modes
-INSTALL_MODE="standard"  # standard, minimal, adaptive, single, platform, optimized, repair
+INSTALL_MODE="adaptive"  # standard, minimal, adaptive, single, bundle, platform, optimized, repair
 
 # Check for help first
 for arg in "$@"; do
@@ -24,9 +24,11 @@ for arg in "$@"; do
         echo "Usage: $0 [OPTIONS]"
         echo ""
         echo "Installation Modes:"
+        echo "  (default)         Smart installation with environment detection"
         echo "  --minimal         Quick installation with core dependencies only"
-        echo "  --adaptive        Smart installation with environment detection"
+        echo "  --standard        Standard installation with interactive prompts"
         echo "  --single          Create single executable (PAR Packer)"
+        echo "  --bundle          Create static bundle (self-contained) [RECOMMENDED]"
         echo "  --platform        Create platform-specific bundles"
         echo "  --optimized       Create size-optimized bundle"
         echo "  --repair          Repair existing installation"
@@ -38,13 +40,14 @@ for arg in "$@"; do
         echo "  --help, -h        Show this help"
         echo ""
         echo "Examples:"
-        echo "  $0                    # Standard installation"
+        echo "  $0                    # Smart installation (default)"
         echo "  $0 --minimal          # Minimal installation"
-        echo "  $0 --adaptive --verbose # Smart installation with verbose output"
-        echo "  $0 --repair           # Repair existing installation"
-        echo "  $0 --single           # Create single executable"
+        echo "  $0 --standard         # Standard installation with prompts"
+        echo "  $0 --bundle           # Create static bundle (recommended)"
+        echo "  $0 --single           # Create single executable (PAR Packer)"
         echo "  $0 --platform         # Create platform-specific bundles"
         echo "  $0 --optimized        # Create size-optimized bundle"
+        echo "  $0 --repair           # Repair existing installation"
         exit 0
     fi
 done
@@ -59,9 +62,11 @@ show_help() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "Installation Modes:"
+    echo "  (default)         Smart installation with environment detection"
     echo "  --minimal         Quick installation with core dependencies only"
-    echo "  --adaptive        Smart installation with environment detection"
+    echo "  --standard        Standard installation with interactive prompts"
     echo "  --single          Create single executable (PAR Packer)"
+    echo "  --bundle          Create static bundle (self-contained) [RECOMMENDED]"
     echo "  --platform        Create platform-specific bundles"
     echo "  --optimized       Create size-optimized bundle"
     echo "  --repair          Repair existing installation"
@@ -73,13 +78,14 @@ show_help() {
     echo "  --help, -h        Show this help"
     echo ""
     echo "Examples:"
-    echo "  $0                    # Standard installation"
+    echo "  $0                    # Smart installation (default)"
     echo "  $0 --minimal          # Minimal installation"
-    echo "  $0 --adaptive --verbose # Smart installation with verbose output"
-    echo "  $0 --repair           # Repair existing installation"
-    echo "  $0 --single           # Create single executable"
+    echo "  $0 --standard         # Standard installation with prompts"
+    echo "  $0 --bundle           # Create static bundle (recommended)"
+    echo "  $0 --single           # Create single executable (PAR Packer)"
     echo "  $0 --platform         # Create platform-specific bundles"
     echo "  $0 --optimized        # Create size-optimized bundle"
+    echo "  $0 --repair           # Repair existing installation"
 }
 
 # Parse all arguments
@@ -107,6 +113,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --single)
             INSTALL_MODE="single"
+            shift
+            ;;
+        --bundle)
+            INSTALL_MODE="bundle"
             shift
             ;;
         --platform)
@@ -202,15 +212,18 @@ install_standard() {
     # Interactive dependency selection
     if [ "$OFFLINE" = "false" ]; then
         select_dependencies
-        install_optional=$?
         echo ""
     fi
 
+    # Install system dependencies
+    install_system_dependencies
+    echo ""
+    
     # Install dependencies
     print_info "Installing Perl dependencies..."
     echo ""
     
-    if [ "$install_optional" = "0" ]; then
+    if [ "$INSTALL_OPTIONAL" = "true" ]; then
         modules=($(export_all_modules))
     else
         modules=($(export_core_modules))
@@ -222,7 +235,74 @@ install_standard() {
     fi
 
     # Make executable
+    print_info "Making ZChat executable..."
     make_z_executable
+
+    # Install binary to system PATH with progress
+    print_info "Installing binary to system PATH..."
+    mkdir -p "$HOME/.local/bin"
+    
+    # Show progress for binary installation
+    local install_steps=("Installing binary" "Setting permissions")
+    local total_steps=${#install_steps[@]}
+    local current_step=0
+    local start_time=$(date +%s)
+    
+    # Step 1: Copy binary
+    current_step=$((current_step + 1))
+    show_progress_bar $current_step $total_steps "${install_steps[0]}" $start_time
+    
+    if cp "./z" "$HOME/.local/bin/z"; then
+        show_enhanced_progress $current_step $total_steps "${install_steps[0]}" "success" $start_time
+    else
+        show_enhanced_progress $current_step $total_steps "${install_steps[0]}" "failed" $start_time
+        print_error "Failed to install binary to system PATH"
+        exit 1
+    fi
+    
+    # Step 2: Set permissions
+    current_step=$((current_step + 1))
+    show_progress_bar $current_step $total_steps "${install_steps[1]}" $start_time
+    
+    chmod +x "$HOME/.local/bin/z"
+    show_enhanced_progress $current_step $total_steps "${install_steps[1]}" "success" $start_time
+    
+    print_status "Binary installed to $HOME/.local/bin/z"
+    
+    # Install lib directory with progress
+    if [ -d "./lib" ]; then
+        print_info "Installing library files..."
+        
+        # Show progress for library installation
+        local lib_steps=("Copying library files" "Setting permissions")
+        local lib_total=${#lib_steps[@]}
+        local lib_current=0
+        local lib_start_time=$(date +%s)
+        
+        # Step 1: Copy libraries
+        lib_current=$((lib_current + 1))
+        show_progress_bar $lib_current $lib_total "${lib_steps[0]}" $lib_start_time
+        
+        if cp -r "./lib" "$HOME/.local/bin/"; then
+            show_enhanced_progress $lib_current $lib_total "${lib_steps[0]}" "success" $lib_start_time
+        else
+            show_enhanced_progress $lib_current $lib_total "${lib_steps[0]}" "failed" $lib_start_time
+            print_error "Failed to install library files"
+            exit 1
+        fi
+        
+        # Step 2: Set permissions
+        lib_current=$((lib_current + 1))
+        show_progress_bar $lib_current $lib_total "${lib_steps[1]}" $lib_start_time
+        
+        chmod -R +x "$HOME/.local/bin/lib" 2>/dev/null || true
+        show_enhanced_progress $lib_current $lib_total "${lib_steps[1]}" "success" $lib_start_time
+        
+        print_status "Library files installed to $HOME/.local/bin/lib"
+    else
+        print_error "lib directory not found"
+        exit 1
+    fi
 
     # Create configuration
     create_default_config
@@ -267,6 +347,10 @@ install_minimal() {
     fi
     echo ""
 
+    # Install system dependencies
+    install_system_dependencies
+    echo ""
+    
     # Install only core dependencies
     print_info "Installing core dependencies only..."
     modules=($(export_core_modules))
@@ -278,6 +362,72 @@ install_minimal() {
 
     # Make executable
     make_z_executable
+
+    # Install binary to system PATH with progress
+    print_info "Installing binary to system PATH..."
+    mkdir -p "$HOME/.local/bin"
+    
+    # Show progress for binary installation
+    local install_steps=("Installing binary" "Setting permissions")
+    local total_steps=${#install_steps[@]}
+    local current_step=0
+    local start_time=$(date +%s)
+    
+    # Step 1: Copy binary
+    current_step=$((current_step + 1))
+    show_progress_bar $current_step $total_steps "${install_steps[0]}" $start_time
+    
+    if cp "./z" "$HOME/.local/bin/z"; then
+        show_enhanced_progress $current_step $total_steps "${install_steps[0]}" "success" $start_time
+    else
+        show_enhanced_progress $current_step $total_steps "${install_steps[0]}" "failed" $start_time
+        print_error "Failed to install binary to system PATH"
+        exit 1
+    fi
+    
+    # Step 2: Set permissions
+    current_step=$((current_step + 1))
+    show_progress_bar $current_step $total_steps "${install_steps[1]}" $start_time
+    
+    chmod +x "$HOME/.local/bin/z"
+    show_enhanced_progress $current_step $total_steps "${install_steps[1]}" "success" $start_time
+    
+    print_status "Binary installed to $HOME/.local/bin/z"
+    
+    # Install lib directory with progress
+    if [ -d "./lib" ]; then
+        print_info "Installing library files..."
+        
+        # Show progress for library installation
+        local lib_steps=("Copying library files" "Setting permissions")
+        local lib_total=${#lib_steps[@]}
+        local lib_current=0
+        local lib_start_time=$(date +%s)
+        
+        # Step 1: Copy libraries
+        lib_current=$((lib_current + 1))
+        show_progress_bar $lib_current $lib_total "${lib_steps[0]}" $lib_start_time
+        
+        if cp -r "./lib" "$HOME/.local/bin/"; then
+            show_enhanced_progress $lib_current $lib_total "${lib_steps[0]}" "success" $lib_start_time
+        else
+            show_enhanced_progress $lib_current $lib_total "${lib_steps[0]}" "failed" $lib_start_time
+            print_error "Failed to install library files"
+            exit 1
+        fi
+        
+        # Step 2: Set permissions
+        lib_current=$((lib_current + 1))
+        show_progress_bar $lib_current $lib_total "${lib_steps[1]}" $lib_start_time
+        
+        chmod -R +x "$HOME/.local/bin/lib" 2>/dev/null || true
+        show_enhanced_progress $lib_current $lib_total "${lib_steps[1]}" "success" $lib_start_time
+        
+        print_status "Library files installed to $HOME/.local/bin/lib"
+    else
+        print_error "lib directory not found"
+        exit 1
+    fi
 
     # Create basic configuration
     create_default_config
@@ -320,15 +470,28 @@ install_adaptive() {
     fi
 }
 
-# Single executable creation
+# Single executable creation (PAR Packer)
 create_single_executable() {
-    print_info "Creating single executable..."
+    print_info "Creating single executable (PAR Packer)..."
     
     if [ -f "./install/create-single-executable.sh" ]; then
         source ./install/create-single-executable.sh
         main  # Call the main function from create-single-executable.sh
     else
         print_error "Single executable creator not found"
+        exit 1
+    fi
+}
+
+# Static bundle creation
+create_static_bundle() {
+    print_info "Creating static bundle (self-contained)..."
+    
+    if [ -f "./install/create-bundle.sh" ]; then
+        source ./install/create-bundle.sh
+        # The create-bundle.sh script runs its main function automatically
+    else
+        print_error "Static bundle creator not found"
         exit 1
     fi
 }
@@ -413,6 +576,9 @@ main() {
             ;;
         "single")
             create_single_executable
+            ;;
+        "bundle")
+            create_static_bundle
             ;;
         "platform")
             create_platform_bundles

@@ -24,7 +24,12 @@ else
         local total=$2
         local desc=$3
         local percent=$((current * 100 / total))
-        printf "\r[%3d%%] %s (%d/%d)" $percent "$desc" $current $total
+        local filled=$((percent / 2))
+        local empty=$((50 - filled))
+        printf "\r[%3d%%] [" $percent
+        printf "%*s" $filled | tr ' ' '#'
+        printf "%*s" $empty | tr ' ' '-'
+        printf "] %s (%d/%d)" "$desc" $current $total
     }
     
     show_enhanced_progress() {
@@ -124,15 +129,58 @@ fi
 
 mkdir -p "$BUNDLE_DIR"
 
-# Copy ZChat files
+# Copy ZChat files with progress
 print_info "Copying ZChat files..."
+local copy_steps=(
+    "Copying main script"
+    "Copying library files"
+    "Copying help files"
+    "Copying completions"
+    "Copying reference files"
+    "Copying documentation"
+)
+local total_copy_steps=${#copy_steps[@]}
+local current_copy_step=0
+local copy_start_time=$(date +%s)
+
+# Step 1: Copy main script
+current_copy_step=$((current_copy_step + 1))
+show_progress_bar $current_copy_step $total_copy_steps "${copy_steps[0]}" $copy_start_time
 cp -r z "$BUNDLE_DIR/"
+show_enhanced_progress $current_copy_step $total_copy_steps "${copy_steps[0]}" "success" $copy_start_time
+
+# Step 2: Copy library files
+current_copy_step=$((current_copy_step + 1))
+show_progress_bar $current_copy_step $total_copy_steps "${copy_steps[1]}" $copy_start_time
 cp -r lib "$BUNDLE_DIR/"
+show_enhanced_progress $current_copy_step $total_copy_steps "${copy_steps[1]}" "success" $copy_start_time
+
+# Step 3: Copy help files
+current_copy_step=$((current_copy_step + 1))
+show_progress_bar $current_copy_step $total_copy_steps "${copy_steps[2]}" $copy_start_time
 cp -r help "$BUNDLE_DIR/"
+show_enhanced_progress $current_copy_step $total_copy_steps "${copy_steps[2]}" "success" $copy_start_time
+
+# Step 4: Copy completions
+current_copy_step=$((current_copy_step + 1))
+show_progress_bar $current_copy_step $total_copy_steps "${copy_steps[3]}" $copy_start_time
 cp -r completions "$BUNDLE_DIR/"
+show_enhanced_progress $current_copy_step $total_copy_steps "${copy_steps[3]}" "success" $copy_start_time
+
+# Step 5: Copy reference files
+current_copy_step=$((current_copy_step + 1))
+show_progress_bar $current_copy_step $total_copy_steps "${copy_steps[4]}" $copy_start_time
 cp -r refs "$BUNDLE_DIR/"
+show_enhanced_progress $current_copy_step $total_copy_steps "${copy_steps[4]}" "success" $copy_start_time
+
+# Step 6: Copy documentation
+current_copy_step=$((current_copy_step + 1))
+show_progress_bar $current_copy_step $total_copy_steps "${copy_steps[5]}" $copy_start_time
 cp README.md "$BUNDLE_DIR/" 2>/dev/null || true
 cp LICENSE "$BUNDLE_DIR/" 2>/dev/null || true
+show_enhanced_progress $current_copy_step $total_copy_steps "${copy_steps[5]}" "success" $copy_start_time
+
+print_status "ZChat files copied successfully!"
 
 # Create temporary CPAN directory
 TEMP_CPAN="$BUNDLE_DIR/temp-cpan"
@@ -171,6 +219,8 @@ start_time=$(date +%s)
 
 for module in "${modules[@]}"; do
     current_module=$((current_module + 1))
+    
+    # Show progress bar even for single items
     show_progress_bar $current_module $total_modules "Installing $module" $start_time
     
     if retry_operation 3 2 "cpanm --notest --quiet --local-lib=$TEMP_CPAN $module 2>/dev/null" "$module installation"; then
@@ -186,13 +236,51 @@ print_info "Copying modules to bundle..."
 PERL_LIB="$BUNDLE_DIR/perl-lib"
 mkdir -p "$PERL_LIB"
 
-# Copy all installed modules
+# Show progress for module copying
+local copy_module_steps=("Copying Perl modules" "Setting permissions")
+local copy_module_total=${#copy_module_steps[@]}
+local copy_module_current=0
+local copy_module_start_time=$(date +%s)
+
+# Step 1: Copy modules
+copy_module_current=$((copy_module_current + 1))
+show_progress_bar $copy_module_current $copy_module_total "${copy_module_steps[0]}" $copy_module_start_time
+
 if [ -d "$TEMP_CPAN/lib/perl5" ]; then
     cp -r "$TEMP_CPAN/lib/perl5"/* "$PERL_LIB/" 2>/dev/null || true
+    show_enhanced_progress $copy_module_current $copy_module_total "${copy_module_steps[0]}" "success" $copy_module_start_time
+else
+    show_enhanced_progress $copy_module_current $copy_module_total "${copy_module_steps[0]}" "failed" $copy_module_start_time
+    print_warning "No modules found to copy"
 fi
 
-# Create bundle loader
+# Step 2: Set permissions
+copy_module_current=$((copy_module_current + 1))
+show_progress_bar $copy_module_current $copy_module_total "${copy_module_steps[1]}" $copy_module_start_time
+
+chmod -R +r "$PERL_LIB" 2>/dev/null || true
+show_enhanced_progress $copy_module_current $copy_module_total "${copy_module_steps[1]}" "success" $copy_module_start_time
+
+print_status "Modules copied to bundle successfully!"
+
+# Create bundle loader with progress
 print_info "Creating bundle loader..."
+local bundle_setup_steps=(
+    "Creating bundle loader"
+    "Creating bundled script"
+    "Setting script permissions"
+    "Creating installation script"
+    "Creating documentation"
+)
+local bundle_setup_total=${#bundle_setup_steps[@]}
+local bundle_setup_current=0
+local bundle_setup_start_time=$(date +%s)
+
+# Step 1: Create bundle loader
+bundle_setup_current=$((bundle_setup_current + 1))
+show_progress_bar $bundle_setup_current $bundle_setup_total "${bundle_setup_steps[0]}" $bundle_setup_start_time
+
+mkdir -p "$PERL_LIB/ZChat"
 cat > "$PERL_LIB/ZChat/Bundle.pm" << 'EOF'
 package ZChat::Bundle;
 # Bundle loader for ZChat dependencies
@@ -209,9 +297,12 @@ unshift @INC, $bundle_dir;
 
 1;
 EOF
+show_enhanced_progress $bundle_setup_current $bundle_setup_total "${bundle_setup_steps[0]}" "success" $bundle_setup_start_time
 
-# Create bundled z script
-print_info "Creating bundled z script..."
+# Step 2: Create bundled z script
+bundle_setup_current=$((bundle_setup_current + 1))
+show_progress_bar $bundle_setup_current $bundle_setup_total "${bundle_setup_steps[1]}" $bundle_setup_start_time
+
 cat > "$BUNDLE_DIR/z-bundle" << 'EOF'
 #!/usr/bin/env perl
 # Bundled ZChat script with embedded dependencies
@@ -244,7 +335,7 @@ use JSON::XS;
 use URI::Escape;
 use Data::Dumper;
 use List::Util qw(max);
-use Clipboard;
+# use Clipboard; # Replaced with custom clipboard function
 use MIME::Base64;
 # use Image::Magick; # Optional - will be loaded conditionally
 use File::Slurper qw(write_text read_text read_lines read_binary);
@@ -315,11 +406,19 @@ my $prompt = join(' ', @ARGV);
 print "Input: $prompt\n";
 print "Note: This is a minimal bundle. Configure LLM server to use full functionality.\n";
 EOF
+show_enhanced_progress $bundle_setup_current $bundle_setup_total "${bundle_setup_steps[1]}" "success" $bundle_setup_start_time
+
+# Step 3: Set script permissions
+bundle_setup_current=$((bundle_setup_current + 1))
+show_progress_bar $bundle_setup_current $bundle_setup_total "${bundle_setup_steps[2]}" $bundle_setup_start_time
 
 chmod +x "$BUNDLE_DIR/z-bundle"
+show_enhanced_progress $bundle_setup_current $bundle_setup_total "${bundle_setup_steps[2]}" "success" $bundle_setup_start_time
 
-# Create installation script
-print_info "Creating installation script..."
+# Step 4: Create installation script
+bundle_setup_current=$((bundle_setup_current + 1))
+show_progress_bar $bundle_setup_current $bundle_setup_total "${bundle_setup_steps[3]}" $bundle_setup_start_time
+
 cat > "$BUNDLE_DIR/install.sh" << 'EOF'
 #!/bin/bash
 # Install bundled ZChat
@@ -381,11 +480,14 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     fi
 fi
 EOF
+show_enhanced_progress $bundle_setup_current $bundle_setup_total "${bundle_setup_steps[3]}" "success" $bundle_setup_start_time
 
 chmod +x "$BUNDLE_DIR/install.sh"
 
-# Create README
-print_info "Creating bundle README..."
+# Step 5: Create documentation
+bundle_setup_current=$((bundle_setup_current + 1))
+show_progress_bar $bundle_setup_current $bundle_setup_total "${bundle_setup_steps[4]}" $bundle_setup_start_time
+
 cat > "$BUNDLE_DIR/README-BUNDLE.md" << 'EOF'
 # ZChat Static Bundle
 
@@ -483,6 +585,9 @@ Check your environment variables:
 env | grep -E "(OPENAI|LLAMA|OLLAMA)"
 ```
 EOF
+show_enhanced_progress $bundle_setup_current $bundle_setup_total "${bundle_setup_steps[4]}" "success" $bundle_setup_start_time
+
+print_status "Bundle setup completed successfully!"
 
 # Run post-installation tests
 print_info "Running post-installation tests..."

@@ -18,11 +18,20 @@ cd z
 
 The unified installer handles all installation scenarios with a single script.
 
+**Installation Features:**
+- **Robust error handling** - Optional module failures don't break installation
+- **Cross-platform clipboard support** - Works in WSL2, Linux, macOS, and Windows
+- **Progress indicators** - Beautiful progress bars for all installation steps
+- **Smart dependency management** - Distinguishes between required and optional modules
+- **System dependency installation** - Automatically installs xclip for clipboard support
+- **Comprehensive uninstaller** - Handles all installation types with progress indicators
+
 **Installation Modes:**
-- `./install.sh` - Standard installation (default)
+- `./install.sh` - Smart installation with environment detection (default)
 - `./install.sh --minimal` - Quick installation with core dependencies only
-- `./install.sh --adaptive` - Smart installation with environment detection
-- `./install.sh --single` - Create single executable
+- `./install.sh --standard` - Standard installation with interactive prompts
+- `./install.sh --single` - Create single executable (PAR Packer)
+- `./install.sh --bundle` - Create static bundle (self-contained) [RECOMMENDED]
 - `./install.sh --platform` - Create platform-specific bundles  
 - `./install.sh --optimized` - Create size-optimized bundle
 - `./install.sh --repair` - Repair existing installation
@@ -33,14 +42,54 @@ The unified installer handles all installation scenarios with a single script.
 - `--offline, -o` - Offline installation mode
 - `--help, -h` - Show help
 
-### 2. Specialized Tools
-**File:** `install/create-bundle.sh`  
-**Usage:** `./install/create-bundle.sh [--verbose]`  
-**Best for:** Creating portable offline bundles
+**Examples:**
+```bash
+# Smart installation (default - recommended)
+./install.sh
 
+# Minimal installation (core dependencies only)
+./install.sh --minimal
+
+# Standard installation with interactive prompts
+./install.sh --standard
+
+# Create self-contained bundle (recommended for distribution)
+./install.sh --bundle
+
+# Create single executable file (requires compilation)
+./install.sh --single
+
+# Repair existing installation
+./install.sh --repair
+```
+
+### 2. Single Executable Options
+
+**Two approaches for creating self-contained ZChat distributions:**
+
+#### Option A: Static Bundle (`--bundle`) [RECOMMENDED]
+**File:** `install/create-bundle.sh`  
+**Usage:** `./install.sh --bundle` or `./install/create-bundle.sh [--verbose]`  
+**Best for:** Reliable, portable distributions
+
+- ✅ Creates a directory with all dependencies bundled locally
+- ✅ No external CPAN dependencies required
+- ✅ Works offline after creation
+- ✅ More reliable across different systems
+- ✅ No compilation required
+- ✅ Recommended for most users
+
+#### Option B: Single Executable (`--single`)
 **File:** `install/create-single-executable.sh`  
-**Usage:** `./install/create-single-executable.sh`  
-**Best for:** Creating single file executables (PAR Packer)
+**Usage:** `./install.sh --single` or `./install/create-single-executable.sh`  
+**Best for:** True single-file distribution (advanced users)
+
+- ⚠️ Creates a single binary file using PAR Packer
+- ⚠️ Requires PAR::Packer installation and compilation
+- ⚠️ May need system build dependencies (gcc, perl-dev)
+- ⚠️ Can fail in WSL, containers, or minimal environments
+- ✅ Best for distribution as a single file
+- 💡 **Tip:** Use `--bundle` instead for better reliability
 
 **File:** `install/create-platform-bundles.sh`  
 **Usage:** `./install/create-platform-bundles.sh [platform] [arch]`  
@@ -173,8 +222,6 @@ export OPENAI_API_KEY=your-key-here
 - Mojo::UserAgent - HTTP client for LLM API communication
 - JSON::XS - Fast JSON parsing and generation
 - YAML::XS - YAML configuration file handling
-- Text::Xslate - Template engine for system prompts
-- Clipboard - Clipboard access for --clipboard functionality
 - Getopt::Long::Descriptive - Enhanced command-line option parsing
 - URI::Escape - URL encoding/decoding
 - Data::Dumper - Data structure debugging
@@ -185,18 +232,24 @@ export OPENAI_API_KEY=your-key-here
 - File::Compare - File comparison utilities
 - Carp - Error reporting utilities
 - Term::ReadLine - Command-line editing and history
-- Term::ReadLine::Gnu - GNU ReadLine support
-- Term::Size - Terminal size detection
 - Capture::Tiny - Capturing STDOUT/STDERR
 - LWP::UserAgent - HTTP client
 
-### Optional Modules
+### Optional Modules (Enhanced Features)
 - Image::Magick - Image processing for --img functionality
+  - Note: Requires ImageMagick system libraries, often fails to install
+- Text::Xslate - Template engine for system prompts
+  - Note: Requires C++ compiler, can fail on minimal systems
+- Term::ReadLine::Gnu - Enhanced GNU ReadLine support
+  - Note: Requires GNU ReadLine development libraries
+- Term::Size - Terminal size detection
+  - Note: May fail on some terminal environments
 
 ### System Dependencies
 - Build tools: build-essential, gcc, make
 - SSL libraries: libssl-dev
 - Network tools: curl, wget
+- Clipboard support: xclip (WSL2/Linux), automatically installed
 - ImageMagick (if using Image::Magick): libmagickwand-dev, imagemagick
 
 ## Troubleshooting
@@ -227,12 +280,35 @@ sudo apt-get install build-essential libssl-dev curl wget
 curl -L https://cpanmin.us | perl - App::cpanminus
 ```
 
+**Optional Module Failures**
+```bash
+# These warnings are normal and non-fatal:
+# [WARNING] Failed to install optional module: Image::Magick
+# [INFO] This is non-fatal - image processing features will be disabled
+
+# Optional modules that may fail:
+# - Image::Magick (requires ImageMagick system libraries)
+# - Text::Xslate (requires C++ compiler)
+# - Term::ReadLine::Gnu (requires GNU ReadLine development libraries)
+# - Term::Size (may fail on some terminal environments)
+```
+
 **Environment Setup**
 ```bash
 # Add to ~/.bashrc
 echo 'eval $(perl -I ~/perl5/lib/perl5/ -Mlocal::lib)' >> ~/.bashrc
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 source ~/.bashrc
+```
+
+**After Installation**
+```bash
+# Important: Start a new bash session to use the 'z' command
+# Or run: source ~/.bashrc to reload your shell
+
+# Test the installation
+z --status
+z --help
 ```
 
 ### Getting Help

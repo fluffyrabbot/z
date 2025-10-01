@@ -24,7 +24,12 @@ else
         local total=$2
         local desc=$3
         local percent=$((current * 100 / total))
-        printf "\r[%3d%%] %s (%d/%d)" $percent "$desc" $current $total
+        local filled=$((percent / 2))
+        local empty=$((50 - filled))
+        printf "\r[%3d%%] [" $percent
+        printf "%*s" $filled | tr ' ' '#'
+        printf "%*s" $empty | tr ' ' '-'
+        printf "] %s (%d/%d)" "$desc" $current $total
     }
 fi
 
@@ -56,7 +61,7 @@ download_modules() {
             "JSON::XS"
             "YAML::XS"
             "Text::Xslate"
-            "Clipboard"
+            # "Clipboard" # Replaced with custom clipboard function
             "Image::Magick"
             "String::ShellQuote"
             "Getopt::Long::Descriptive"
@@ -127,7 +132,7 @@ fi
 
 # Install from cache
 echo -e "${YELLOW}Installing from cached modules...${NC}"
-cpanm --from "$HOME/.zchat/cache/modules" --notest --quiet Mojo::UserAgent JSON::XS YAML::XS Text::Xslate Clipboard
+cpanm --from "$HOME/.zchat/cache/modules" --notest --quiet Mojo::UserAgent JSON::XS YAML::XS Text::Xslate
 
 echo -e "${GREEN}✓ Offline installation complete${NC}"
 EOF

@@ -30,21 +30,29 @@ show_progress_bar() {
         eta=" ETA: ${eta_seconds}s"
     fi
     
-    printf "\r[%3d%%] [" $percent
-    printf "%*s" $filled | tr ' ' '█'
-    printf "%*s" $empty | tr ' ' '░'
-    printf "] %s (%d/%d)%s" "$desc" $current $total "$eta"
+    # For single items, show a more prominent progress bar
+    if [ $total -eq 1 ]; then
+        printf "\r[%3d%%] [" $percent || true
+        printf "%*s" $filled | tr ' ' '#' || true
+        printf "%*s" $empty | tr ' ' '-' || true
+        printf "] %s (1/1)%s" "$desc" "$eta" || true
+    else
+        printf "\r[%3d%%] [" $percent || true
+        printf "%*s" $filled | tr ' ' '#' || true
+        printf "%*s" $empty | tr ' ' '-' || true
+        printf "] %s (%d/%d)%s" "$desc" $current $total "$eta" || true
+    fi
 }
 
 # Spinner for indeterminate operations
 show_spinner() {
     local pid=$1
     local desc=$2
-    local spin='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    local spin='|/-\|/-\|'
     local i=0
     
     while kill -0 $pid 2>/dev/null; do
-        printf "\r${spin:$((i % 10)):1} %s" "$desc"
+        printf "\r${spin:$((i % 8)):1} %s" "$desc"
         sleep 0.1
         ((i++))
     done
@@ -64,10 +72,10 @@ show_enhanced_progress() {
             show_progress_bar $current $total "$desc" $start_time
             ;;
         "success")
-            printf "\r✓ %s\n" "$desc"
+            printf "\r✓ %s\n" "$desc" || true
             ;;
         "failed")
-            printf "\r✗ %s\n" "$desc"
+            printf "\r✗ %s\n" "$desc" || true
             ;;
     esac
 }
@@ -194,7 +202,7 @@ select_dependencies() {
     echo ""
     echo "Optional dependencies:"
     echo "  • Image::Magick - Image processing (multi-modal LLM)"
-    echo "  • Clipboard - Copy/paste integration"
+    echo "  • xclip - Copy/paste integration (WSL2/Linux)"
     echo "  • Text::Xslate - Template engine"
     echo ""
     
@@ -202,13 +210,14 @@ select_dependencies() {
     case $install_optional in
         [Yy]*)
             echo "Installing core + optional dependencies"
-            return 0
+            INSTALL_OPTIONAL=true
             ;;
         *)
             echo "Installing core dependencies only"
-            return 1
+            INSTALL_OPTIONAL=false
             ;;
     esac
+    return 0
 }
 
 # Configuration management

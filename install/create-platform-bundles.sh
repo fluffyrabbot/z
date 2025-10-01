@@ -24,7 +24,12 @@ else
         local total=$2
         local desc=$3
         local percent=$((current * 100 / total))
-        printf "\r[%3d%%] %s (%d/%d)" $percent "$desc" $current $total
+        local filled=$((percent / 2))
+        local empty=$((50 - filled))
+        printf "\r[%3d%%] [" $percent
+        printf "%*s" $filled | tr ' ' '#'
+        printf "%*s" $empty | tr ' ' '-'
+        printf "] %s (%d/%d)" "$desc" $current $total
     }
     
     show_enhanced_progress() {
@@ -74,16 +79,16 @@ get_platform_modules() {
     
     case $platform in
         linux)
-            echo "Mojo::UserAgent JSON::XS YAML::XS Text::Xslate Clipboard Getopt::Long::Descriptive URI::Escape Data::Dumper String::ShellQuote File::Slurper File::Copy File::Temp File::Compare Carp POSIX List::Util Image::Magick"
+            echo "Mojo::UserAgent JSON::XS YAML::XS Text::Xslate # Clipboard # Replaced with custom clipboard function Getopt::Long::Descriptive URI::Escape Data::Dumper String::ShellQuote File::Slurper File::Copy File::Temp File::Compare Carp POSIX List::Util Image::Magick"
             ;;
         macos)
-            echo "Mojo::UserAgent JSON::XS YAML::XS Text::Xslate Clipboard Getopt::Long::Descriptive URI::Escape Data::Dumper String::ShellQuote File::Slurper File::Copy File::Temp File::Compare Carp POSIX List::Util Image::Magick"
+            echo "Mojo::UserAgent JSON::XS YAML::XS Text::Xslate # Clipboard # Replaced with custom clipboard function Getopt::Long::Descriptive URI::Escape Data::Dumper String::ShellQuote File::Slurper File::Copy File::Temp File::Compare Carp POSIX List::Util Image::Magick"
             ;;
         windows)
-            echo "Mojo::UserAgent JSON::XS YAML::XS Text::Xslate Clipboard Getopt::Long::Descriptive URI::Escape Data::Dumper String::ShellQuote File::Slurper File::Copy File::Temp File::Compare Carp POSIX List::Util"
+            echo "Mojo::UserAgent JSON::XS YAML::XS Text::Xslate # Clipboard # Replaced with custom clipboard function Getopt::Long::Descriptive URI::Escape Data::Dumper String::ShellQuote File::Slurper File::Copy File::Temp File::Compare Carp POSIX List::Util"
             ;;
         *)
-            echo "Mojo::UserAgent JSON::XS YAML::XS Text::Xslate Clipboard Getopt::Long::Descriptive URI::Escape Data::Dumper String::ShellQuote File::Slurper File::Copy File::Temp File::Compare Carp POSIX List::Util"
+            echo "Mojo::UserAgent JSON::XS YAML::XS Text::Xslate # Clipboard # Replaced with custom clipboard function Getopt::Long::Descriptive URI::Escape Data::Dumper String::ShellQuote File::Slurper File::Copy File::Temp File::Compare Carp POSIX List::Util"
             ;;
     esac
 }

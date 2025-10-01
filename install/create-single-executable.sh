@@ -24,7 +24,12 @@ else
         local total=$2
         local desc=$3
         local percent=$((current * 100 / total))
-        printf "\r[%3d%%] %s (%d/%d)" $percent "$desc" $current $total
+        local filled=$((percent / 2))
+        local empty=$((50 - filled))
+        printf "\r[%3d%%] [" $percent
+        printf "%*s" $filled | tr ' ' '#'
+        printf "%*s" $empty | tr ' ' '-'
+        printf "] %s (%d/%d)" "$desc" $current $total
     }
     
     show_enhanced_progress() {
@@ -100,9 +105,26 @@ check_prerequisites() {
     # Check if pp is available
     if ! command -v pp >/dev/null 2>&1; then
         print_info "Installing PAR Packer (pp)..."
+        print_warning "PAR::Packer requires C compiler and development headers"
+        print_info "If this fails, try: sudo apt-get install build-essential perl-dev"
+        print_info "Or use: ./install.sh --bundle (more reliable alternative)"
+        echo ""
+        
         if ! cpanm -q PAR::Packer; then
             print_error "Failed to install PAR::Packer"
-            print_info "Please install manually: cpanm PAR::Packer"
+            echo ""
+            print_warning "PAR::Packer installation failed. This is common and can be caused by:"
+            echo "  • Missing C compiler (gcc/clang)"
+            echo "  • Missing Perl development headers"
+            echo "  • System package manager conflicts"
+            echo "  • WSL or container environment issues"
+            echo ""
+            print_info "Recommended solutions:"
+            echo "  1. Install build tools: sudo apt-get install build-essential perl-dev"
+            echo "  2. Use static bundle instead: ./install.sh --bundle"
+            echo "  3. Try manual installation: cpanm PAR::Packer"
+            echo ""
+            print_info "The --bundle option is more reliable and doesn't require compilation."
             exit 1
         fi
     fi
@@ -125,7 +147,7 @@ install_modules() {
         "JSON::XS"
         "YAML::XS"
         "Text::Xslate"
-        "Clipboard"
+        # "Clipboard" # Replaced with custom clipboard function
         "Getopt::Long::Descriptive"
         "URI::Escape"
         "Data::Dumper"
@@ -146,7 +168,16 @@ install_modules() {
     
     for module in "${modules[@]}"; do
         current_module=$((current_module + 1))
+        
+        # Show progress bar even for single items
         show_progress_bar $current_module $total_modules "Installing $module" $start_time
+        
+        # Add small delay to make progress visible for instant operations
+        if [ $total_modules -eq 1 ]; then
+            sleep 0.3
+            show_progress_bar $current_module $total_modules "Installing $module" $start_time
+            sleep 0.2
+        fi
         
         if cpanm -q "$module" 2>/dev/null; then
             show_enhanced_progress $current_module $total_modules "$module" "success" $start_time
@@ -170,6 +201,21 @@ create_executable() {
     if [ "$PLATFORM" = "windows" ]; then
         output_file="${output_file}.exe"
     fi
+    
+    # Show progress for executable creation
+    local exec_steps=(
+        "Preparing PAR Packer arguments"
+        "Creating executable with pp"
+        "Testing executable"
+        "Setting permissions"
+    )
+    local exec_total=${#exec_steps[@]}
+    local exec_current=0
+    local exec_start_time=$(date +%s)
+    
+    # Step 1: Prepare arguments
+    exec_current=$((exec_current + 1))
+    show_progress_bar $exec_current $exec_total "${exec_steps[0]}" $exec_start_time
     
     # Create the executable using pp
     local pp_args=(
@@ -196,34 +242,57 @@ create_executable() {
     # Add the main script
     pp_args+=("z")
     
+    show_enhanced_progress $exec_current $exec_total "${exec_steps[0]}" "success" $exec_start_time
+    
+    # Step 2: Create executable
+    exec_current=$((exec_current + 1))
+    show_progress_bar $exec_current $exec_total "${exec_steps[1]}" $exec_start_time
+    
     print_info "Running: pp ${pp_args[*]}"
     
     if pp "${pp_args[@]}"; then
+        show_enhanced_progress $exec_current $exec_total "${exec_steps[1]}" "success" $exec_start_time
         print_status "Single executable created: $output_file"
-        
-        # Test the executable
-        print_info "Testing executable..."
-        if [ -f "$output_file" ]; then
-            if [ "$PLATFORM" = "windows" ]; then
-                # Windows testing would need different approach
-                print_status "Executable created successfully"
-            else
-                # Test with --help
-                if ./"$output_file" --help >/dev/null 2>&1; then
-                    print_status "Executable test passed"
-                else
-                    print_warning "Executable test failed, but file was created"
-                fi
-            fi
-        else
-            print_error "Executable file not found after creation"
-            exit 1
-        fi
     else
+        show_enhanced_progress $exec_current $exec_total "${exec_steps[1]}" "failed" $exec_start_time
         print_error "Failed to create single executable"
         print_info "Check pp.log for details"
         exit 1
     fi
+    
+    # Step 3: Test executable
+    exec_current=$((exec_current + 1))
+    show_progress_bar $exec_current $exec_total "${exec_steps[2]}" $exec_start_time
+    
+    if [ -f "$output_file" ]; then
+        if [ "$PLATFORM" = "windows" ]; then
+            # Windows testing would need different approach
+            show_enhanced_progress $exec_current $exec_total "${exec_steps[2]}" "success" $exec_start_time
+            print_status "Executable created successfully"
+        else
+            # Test with --help
+            if ./"$output_file" --help >/dev/null 2>&1; then
+                show_enhanced_progress $exec_current $exec_total "${exec_steps[2]}" "success" $exec_start_time
+                print_status "Executable test passed"
+            else
+                show_enhanced_progress $exec_current $exec_total "${exec_steps[2]}" "failed" $exec_start_time
+                print_warning "Executable test failed, but file was created"
+            fi
+        fi
+    else
+        show_enhanced_progress $exec_current $exec_total "${exec_steps[2]}" "failed" $exec_start_time
+        print_error "Executable file not found after creation"
+        exit 1
+    fi
+    
+    # Step 4: Set permissions
+    exec_current=$((exec_current + 1))
+    show_progress_bar $exec_current $exec_total "${exec_steps[3]}" $exec_start_time
+    
+    chmod +x "$output_file" 2>/dev/null || true
+    show_enhanced_progress $exec_current $exec_total "${exec_steps[3]}" "success" $exec_start_time
+    
+    print_status "Executable creation completed successfully!"
 }
 
 # Create distribution package
@@ -237,13 +306,37 @@ create_distribution() {
         output_file="${output_file}.exe"
     fi
     
+    # Show progress for distribution creation
+    local dist_steps=(
+        "Creating distribution directory"
+        "Copying executable"
+        "Creating README"
+        "Copying LICENSE"
+        "Creating archive"
+    )
+    local dist_total=${#dist_steps[@]}
+    local dist_current=0
+    local dist_start_time=$(date +%s)
+    
+    # Step 1: Create directory
+    dist_current=$((dist_current + 1))
+    show_progress_bar $dist_current $dist_total "${dist_steps[0]}" $dist_start_time
+    
     local dist_dir="zchat-single-${PLATFORM}-${ARCHITECTURE}"
     mkdir -p "$dist_dir"
+    show_enhanced_progress $dist_current $dist_total "${dist_steps[0]}" "success" $dist_start_time
     
-    # Copy executable
+    # Step 2: Copy executable
+    dist_current=$((dist_current + 1))
+    show_progress_bar $dist_current $dist_total "${dist_steps[1]}" $dist_start_time
+    
     cp "$output_file" "$dist_dir/"
+    show_enhanced_progress $dist_current $dist_total "${dist_steps[1]}" "success" $dist_start_time
     
-    # Create README for the distribution
+    # Step 3: Create README
+    dist_current=$((dist_current + 1))
+    show_progress_bar $dist_current $dist_total "${dist_steps[2]}" $dist_start_time
+    
     cat > "$dist_dir/README.md" << EOF
 # ZChat Single Executable - $PLATFORM ($ARCHITECTURE)
 
@@ -290,15 +383,27 @@ See LICENSE file in the source repository.
 
 For issues and support, visit: https://github.com/fluffyrabbot/z
 EOF
+    show_enhanced_progress $dist_current $dist_total "${dist_steps[2]}" "success" $dist_start_time
     
-    # Copy LICENSE if available
+    # Step 4: Copy LICENSE
+    dist_current=$((dist_current + 1))
+    show_progress_bar $dist_current $dist_total "${dist_steps[3]}" $dist_start_time
+    
     if [ -f "LICENSE" ]; then
         cp LICENSE "$dist_dir/"
+        show_enhanced_progress $dist_current $dist_total "${dist_steps[3]}" "success" $dist_start_time
+    else
+        show_enhanced_progress $dist_current $dist_total "${dist_steps[3]}" "success" $dist_start_time
+        print_info "No LICENSE file found, skipping"
     fi
     
-    # Create archive
+    # Step 5: Create archive
+    dist_current=$((dist_current + 1))
+    show_progress_bar $dist_current $dist_total "${dist_steps[4]}" $dist_start_time
+    
     local archive_name="zchat-single-${PLATFORM}-${ARCHITECTURE}.tar.gz"
     tar -czf "$archive_name" "$dist_dir"
+    show_enhanced_progress $dist_current $dist_total "${dist_steps[4]}" "success" $dist_start_time
     
     print_status "Distribution package created: $archive_name"
     print_info "Contents:"

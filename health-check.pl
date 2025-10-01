@@ -40,10 +40,10 @@ sub check_perl_version() {
     say "Perl version: $perl_version";
     
     if ($perl_version ge v5.26.3) {
-        say "$successOK: Perl version acceptable$rst";
+        say "✓: Perl version acceptable$rst";
         return 1;
     } else {
-        say "$errorERROR: Perl 5.26.3+ required$rst";
+        say "✗: Perl 5.26.3+ required$rst";
         return 0;
     }
 }
@@ -51,15 +51,26 @@ sub check_perl_version() {
 sub check_dependencies() {
     print_section("Dependencies", "");
     
-    my @modules = qw(Mojo::UserAgent JSON::XS YAML::XS Text::Xslate Image::Magick Clipboard);
+    my @core_modules = qw(Mojo::UserAgent JSON::XS YAML::XS Getopt::Long::Descriptive URI::Escape Data::Dumper String::ShellQuote File::Slurper File::Copy File::Temp File::Compare Carp Term::ReadLine Capture::Tiny LWP::UserAgent);
+    my @optional_modules = qw(Image::Magick Text::Xslate Term::ReadLine::Gnu Term::Size);
     my $all_good = 1;
     
-    for my $mod (@modules) {
+    say "Core modules (required):";
+    for my $mod (@core_modules) {
         if (eval "use $mod; 1") {
-            say "$successOK: $mod$rst";
+            say "  ✓ $mod";
         } else {
-            say "$errorERROR: $mod$rst";
+            say "  ✗ $mod";
             $all_good = 0;
+        }
+    }
+    
+    say "\nOptional modules (enhanced features):";
+    for my $mod (@optional_modules) {
+        if (eval "use $mod; 1") {
+            say "  ✓ $mod";
+        } else {
+            say "  ⚠ $mod (optional - some features disabled)";
         }
     }
     
@@ -71,10 +82,10 @@ sub check_configuration() {
     
     my $config_dir = "$ENV{HOME}/.config/zchat";
     if (-d $config_dir) {
-        say "$successOK: Config directory exists$rst";
+        say "✓: Config directory exists$rst";
         say "  Location: $config_dir";
     } else {
-        say "$errorERROR: Config directory missing$rst";
+        say "✗: Config directory missing$rst";
         say "  Expected: $config_dir";
         return 0;
     }
@@ -82,30 +93,30 @@ sub check_configuration() {
     # Check user config
     my $user_config = "$config_dir/user.yaml";
     if (-f $user_config) {
-        say "$successOK: User config exists$rst";
+        say "✓: User config exists$rst";
         say "  Location: $user_config";
     } else {
-        say "$warningWARNING: User config missing$rst";
+        say "⚠: User config missing$rst";
         say "  Expected: $user_config";
     }
     
     # Check system directory
     my $system_dir = "$config_dir/system";
     if (-d $system_dir) {
-        say "$successOK: System directory exists$rst";
+        say "✓: System directory exists$rst";
         say "  Location: $system_dir";
     } else {
-        say "$warningWARNING: System directory missing$rst";
+        say "⚠: System directory missing$rst";
         say "  Expected: $system_dir";
     }
     
     # Check sessions directory
     my $sessions_dir = "$config_dir/sessions";
     if (-d $sessions_dir) {
-        say "$successOK: Sessions directory exists$rst";
+        say "✓: Sessions directory exists$rst";
         say "  Location: $sessions_dir";
     } else {
-        say "$warningWARNING: Sessions directory missing$rst";
+        say "⚠: Sessions directory missing$rst";
         say "  Expected: $sessions_dir";
     }
     
@@ -121,14 +132,14 @@ sub check_llm_connection() {
     
     for my $var (@env_vars) {
         if (defined $ENV{$var}) {
-            say "$successOK: Environment variable $var set$rst";
+            say "✓: Environment variable $var set$rst";
             say "  Value: $ENV{$var}";
             $found_env = 1;
         }
     }
     
     if (!$found_env) {
-        say "$warningWARNING: No LLM environment variables found$rst";
+        say "⚠: No LLM environment variables found$rst";
         say "  Default will be used: http://127.0.0.1:8080";
     }
     
@@ -139,9 +150,9 @@ sub check_llm_connection() {
     my $status_exit = $?;
     
     if ($status_exit == 0) {
-        say "$successOK: ZChat status command successful$rst";
+        say "✓: ZChat status command successful$rst";
     } else {
-        say "$errorERROR: ZChat status command failed$rst";
+        say "✗: ZChat status command failed$rst";
         say "  Exit code: $status_exit";
         say "  Output: $status_output";
     }
@@ -158,13 +169,13 @@ sub check_executable_permissions() {
     for my $file (@executables) {
         if (-f $file) {
             if (-x $file) {
-                say "$successOK: $file is executable$rst";
+                say "✓: $file is executable$rst";
             } else {
-                say "$errorERROR: $file is not executable$rst";
+                say "✗: $file is not executable$rst";
                 $all_good = 0;
             }
         } else {
-            say "$errorERROR: $file not found$rst";
+            say "✗: $file not found$rst";
             $all_good = 0;
         }
     }
@@ -203,9 +214,9 @@ sub main() {
     print_header("Summary");
     
     if ($perl_ok && $deps_ok && $config_ok && $llm_ok && $perms_ok) {
-        say "$successAll checks passed! ZChat is ready to use.$rst";
+        say "✓ checks passed! ZChat is ready to use.$rst";
     } else {
-        say "$errorSome issues detected. Please address them before using ZChat.$rst";
+        say "✗ issues detected. Please address them before using ZChat.$rst";
         show_recommendations();
     }
 }

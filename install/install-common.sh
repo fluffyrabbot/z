@@ -22,6 +22,7 @@ print_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 VERBOSE=false
 FORCE=false
 OFFLINE=false
+INSTALL_OPTIONAL=false
 
 # Parse common command line arguments
 parse_common_args() {
@@ -73,7 +74,12 @@ source_progress_utils() {
             local total=$2
             local desc=$3
             local percent=$((current * 100 / total))
-            printf "\r[%3d%%] %s (%d/%d)" $percent "$desc" $current $total
+            local filled=$((percent / 2))
+            local empty=$((50 - filled))
+            printf "\r[%3d%%] [" $percent
+            printf "%*s" $filled | tr ' ' '#'
+            printf "%*s" $empty | tr ' ' '-'
+            printf "] %s (%d/%d)" "$desc" $current $total
         }
         
         show_enhanced_progress() {
@@ -204,7 +210,7 @@ source_progress_utils() {
             echo ""
             echo "Optional dependencies:"
             echo "  • Image::Magick - Image processing (multi-modal LLM)"
-            echo "  • Clipboard - Copy/paste integration"
+            echo "  • xclip - Copy/paste integration (WSL2/Linux)"
             echo "  • Text::Xslate - Template engine"
             echo ""
             
@@ -212,13 +218,14 @@ source_progress_utils() {
             case $install_optional in
                 [Yy]*)
                     echo "Installing core + optional dependencies"
-                    return 0
+                    INSTALL_OPTIONAL=true
                     ;;
                 *)
                     echo "Installing core dependencies only"
-                    return 1
+                    INSTALL_OPTIONAL=false
                     ;;
             esac
+            return 0
         }
         
         backup_config() {
@@ -270,11 +277,51 @@ init_installer() {
 
 # Dependency management
 export_core_modules() {
-    echo "Mojo::UserAgent JSON::XS YAML::XS Text::Xslate Clipboard Getopt::Long::Descriptive URI::Escape Data::Dumper String::ShellQuote File::Slurper File::Copy File::Temp File::Compare Carp Term::ReadLine Term::ReadLine::Gnu Capture::Tiny LWP::UserAgent Term::Size"
+    echo "Mojo::UserAgent JSON::XS YAML::XS Getopt::Long::Descriptive URI::Escape Data::Dumper String::ShellQuote File::Slurper File::Copy File::Temp File::Compare Carp Term::ReadLine Capture::Tiny LWP::UserAgent"
 }
 
 export_optional_modules() {
-    echo "Image::Magick"
+    echo "Image::Magick Text::Xslate Term::ReadLine::Gnu Term::Size"
+}
+
+# Install system dependencies
+install_system_dependencies() {
+    print_info "Installing system dependencies..."
+    
+    # Use enhanced platform dependency system if available
+    if [ -f "./install/platform-dependencies.sh" ]; then
+        source ./install/platform-dependencies.sh
+        install_platform_dependencies
+    else
+        # Fallback to basic system dependency installation
+        install_basic_system_dependencies
+    fi
+}
+
+# Basic system dependency installation (fallback)
+install_basic_system_dependencies() {
+    print_info "Installing basic system dependencies..."
+    
+    # Check if we're on a Debian-based system
+    if command -v apt-get >/dev/null 2>&1; then
+        print_info "Installing xclip for clipboard support..."
+        if ! command -v xclip >/dev/null 2>&1; then
+            if sudo apt-get update && sudo apt-get install -y xclip; then
+                print_status "✓ xclip installed successfully"
+            else
+                print_warning "⚠ Failed to install xclip - clipboard functionality may not work"
+                print_info "You can install it manually with: sudo apt-get install xclip"
+            fi
+        else
+            print_status "✓ xclip already installed"
+        fi
+    else
+        print_warning "⚠ Cannot install xclip automatically on this system"
+        print_info "Please install xclip manually for clipboard support:"
+        print_info "  • Ubuntu/Debian: sudo apt-get install xclip"
+        print_info "  • CentOS/RHEL: sudo yum install xclip"
+        print_info "  • macOS: brew install xclip"
+    fi
 }
 
 export_all_modules() {
@@ -291,11 +338,22 @@ check_module() {
 install_missing_modules() {
     local modules=("$@")
     local missing_modules=()
+    local optional_modules=("Image::Magick" "Text::Xslate" "Term::ReadLine::Gnu" "Term::Size")  # Modules that are optional and failures shouldn't be fatal
     
     # Check which modules are missing
+    print_info "Checking for missing modules..."
+    local total_modules=${#modules[@]}
+    local current_module=0
+    local start_time=$(date +%s)
+    
     for module in "${modules[@]}"; do
-        if ! check_module "$module"; then
+        current_module=$((current_module + 1))
+        
+        if check_module "$module"; then
+            show_enhanced_progress $current_module $total_modules "$module (already installed)" "success" $start_time
+        else
             missing_modules+=("$module")
+            show_enhanced_progress $current_module $total_modules "$module (missing)" "failed" $start_time
         fi
     done
     
@@ -304,19 +362,53 @@ install_missing_modules() {
         return 0
     fi
     
-    print_info "Installing missing modules: ${missing_modules[*]}"
+    print_info "Installing ${#missing_modules[@]} missing modules..."
+    echo ""
     
-    # Install modules using cpanm
+    # Install modules using cpanm with progress bars
     if command -v cpanm >/dev/null 2>&1; then
+        local install_total=${#missing_modules[@]}
+        local install_current=0
+        local install_start_time=$(date +%s)
+        
+        local failed_modules=()
         for module in "${missing_modules[@]}"; do
-            print_info "Installing $module..."
-            if cpanm "$module"; then
-                print_status "Installed $module"
+            install_current=$((install_current + 1))
+            
+            # Show progress bar even for single items
+            show_progress_bar $install_current $install_total "Installing $module" $install_start_time
+            
+            if cpanm --notest --quiet "$module" 2>/dev/null; then
+                show_enhanced_progress $install_current $install_total "$module" "success" $install_start_time
             else
-                print_error "Failed to install $module"
-                return 1
+                show_enhanced_progress $install_current $install_total "$module" "failed" $install_start_time
+                
+                # Check if this is an optional module
+                local is_optional=false
+                for optional in "${optional_modules[@]}"; do
+                    if [ "$module" = "$optional" ]; then
+                        is_optional=true
+                        break
+                    fi
+                done
+                
+                if [ "$is_optional" = true ]; then
+                    print_warning "Failed to install optional module: $module"
+                    print_info "This is non-fatal - image processing features will be disabled"
+                else
+                    print_error "Failed to install required module: $module"
+                    failed_modules+=("$module")
+                fi
             fi
         done
+        
+        # Only return failure if required modules failed
+        if [ ${#failed_modules[@]} -gt 0 ]; then
+            print_error "Required modules failed to install: ${failed_modules[*]}"
+            return 1
+        fi
+        
+        print_status "Module installation completed!"
     else
         print_error "cpanm not found. Please install App::cpanminus first:"
         echo "curl -L https://cpanmin.us | perl - App::cpanminus"
@@ -330,10 +422,31 @@ install_missing_modules() {
 create_default_config() {
     # Create initial configuration
     print_info "Setting up initial configuration..."
+    
+    # Define configuration steps
+    local config_steps=(
+        "Creating system directories"
+        "Creating default system prompt"
+        "Creating user configuration"
+        "Creating initial session"
+    )
+    
+    local total_steps=${#config_steps[@]}
+    local current_step=0
+    local start_time=$(date +%s)
+    
+    # Step 1: Create directories
+    current_step=$((current_step + 1))
+    show_progress_bar $current_step $total_steps "${config_steps[0]}" $start_time
+    
     mkdir -p ~/.config/zchat/system
     mkdir -p ~/.config/zchat/sessions
+    show_enhanced_progress $current_step $total_steps "${config_steps[0]}" "success" $start_time
 
-    # Create default system prompt
+    # Step 2: Create default system prompt
+    current_step=$((current_step + 1))
+    show_progress_bar $current_step $total_steps "${config_steps[1]}" $start_time
+    
     cat > ~/.config/zchat/system/default << 'EOF'
 You are a helpful AI assistant. You provide clear, concise, and accurate responses.
 
@@ -343,8 +456,12 @@ You understand that this is a command-line interface, so you should:
 - Explain technical concepts clearly
 - Focus on actionable advice
 EOF
+    show_enhanced_progress $current_step $total_steps "${config_steps[1]}" "success" $start_time
 
-    # Create user config if it doesn't exist
+    # Step 3: Create user config if it doesn't exist
+    current_step=$((current_step + 1))
+    show_progress_bar $current_step $total_steps "${config_steps[2]}" $start_time
+    
     if [ ! -f ~/.config/zchat/user.yaml ]; then
         cat > ~/.config/zchat/user.yaml << 'EOF'
 # ZChat User Configuration
@@ -365,13 +482,18 @@ pin_mode_user: "concat"   # vars|varsfirst|concat
 pin_mode_ast: "concat"    # vars|varsfirst|concat
 EOF
     fi
+    show_enhanced_progress $current_step $total_steps "${config_steps[2]}" "success" $start_time
 
-    # Create initial session
+    # Step 4: Create initial session
+    current_step=$((current_step + 1))
+    show_progress_bar $current_step $total_steps "${config_steps[3]}" $start_time
+    
     mkdir -p ~/.config/zchat/sessions/default
     cat > ~/.config/zchat/sessions/default/session.yaml << 'EOF'
 created: 1703123456
 # Session-specific settings go here
 EOF
+    show_enhanced_progress $current_step $total_steps "${config_steps[3]}" "success" $start_time
 
     print_status "Configuration created"
 }
@@ -406,6 +528,10 @@ show_completion_message() {
     echo -e "  ${LIGHT_BLUE}export LLAMA_URL=http://localhost:8080${NC}  # Local llama.cpp"
     echo -e "  ${LIGHT_BLUE}export OPENAI_BASE_URL=https://api.openai.com/v1${NC}  # OpenAI"
     echo -e "  ${LIGHT_BLUE}export OPENAI_API_KEY=your-key-here${NC}"
+    echo ""
+    echo -e "${YELLOW}Important:${NC}"
+    echo -e "  ${LIGHT_BLUE}Start a new bash session${NC} to use the 'z' command"
+    echo -e "  ${LIGHT_BLUE}Or run: source ~/.bashrc${NC} to reload your shell"
     echo ""
     echo "For more information, see the README.md file."
 }
