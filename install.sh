@@ -13,7 +13,7 @@ else
 fi
 
 # Installation modes
-INSTALL_MODE="standard"  # standard, minimal, adaptive, bundle, repair
+INSTALL_MODE="standard"  # standard, minimal, adaptive, single, platform, optimized, repair
 
 # Check for help first
 for arg in "$@"; do
@@ -26,7 +26,9 @@ for arg in "$@"; do
         echo "Installation Modes:"
         echo "  --minimal         Quick installation with core dependencies only"
         echo "  --adaptive        Smart installation with environment detection"
-        echo "  --bundle          Create self-contained bundle"
+        echo "  --single          Create single executable (PAR Packer)"
+        echo "  --platform        Create platform-specific bundles"
+        echo "  --optimized       Create size-optimized bundle"
         echo "  --repair          Repair existing installation"
         echo ""
         echo "Options:"
@@ -40,7 +42,9 @@ for arg in "$@"; do
         echo "  $0 --minimal          # Minimal installation"
         echo "  $0 --adaptive --verbose # Smart installation with verbose output"
         echo "  $0 --repair           # Repair existing installation"
-        echo "  $0 --bundle           # Create offline bundle"
+        echo "  $0 --single           # Create single executable"
+        echo "  $0 --platform         # Create platform-specific bundles"
+        echo "  $0 --optimized        # Create size-optimized bundle"
         exit 0
     fi
 done
@@ -57,7 +61,9 @@ show_help() {
     echo "Installation Modes:"
     echo "  --minimal         Quick installation with core dependencies only"
     echo "  --adaptive        Smart installation with environment detection"
-    echo "  --bundle          Create self-contained bundle"
+    echo "  --single          Create single executable (PAR Packer)"
+    echo "  --platform        Create platform-specific bundles"
+    echo "  --optimized       Create size-optimized bundle"
     echo "  --repair          Repair existing installation"
     echo ""
     echo "Options:"
@@ -71,7 +77,9 @@ show_help() {
     echo "  $0 --minimal          # Minimal installation"
     echo "  $0 --adaptive --verbose # Smart installation with verbose output"
     echo "  $0 --repair           # Repair existing installation"
-    echo "  $0 --bundle           # Create offline bundle"
+    echo "  $0 --single           # Create single executable"
+    echo "  $0 --platform         # Create platform-specific bundles"
+    echo "  $0 --optimized        # Create size-optimized bundle"
 }
 
 # Parse all arguments
@@ -97,8 +105,16 @@ while [[ $# -gt 0 ]]; do
             INSTALL_MODE="adaptive"
             shift
             ;;
-        --bundle)
-            INSTALL_MODE="bundle"
+        --single)
+            INSTALL_MODE="single"
+            shift
+            ;;
+        --platform)
+            INSTALL_MODE="platform"
+            shift
+            ;;
+        --optimized)
+            INSTALL_MODE="optimized"
             shift
             ;;
         --repair)
@@ -246,7 +262,7 @@ install_minimal() {
     print_status "Minimal installation complete!"
     echo ""
     echo "Note: This installation includes only core dependencies."
-    echo "For full functionality, run: $0 --standard"
+    echo "For full functionality, run: $0"
 }
 
 # Adaptive installation
@@ -281,15 +297,41 @@ install_adaptive() {
     fi
 }
 
-# Bundle creation
-create_bundle() {
-    print_info "Creating self-contained bundle..."
+# Single executable creation
+create_single_executable() {
+    print_info "Creating single executable..."
     
-    if [ -f "./install/create-bundle.sh" ]; then
-        source ./install/create-bundle.sh
-        # The create-bundle.sh script will handle the rest
+    if [ -f "./install/create-single-executable.sh" ]; then
+        source ./install/create-single-executable.sh
+        main  # Call the main function from create-single-executable.sh
     else
-        print_error "Bundle creator not found"
+        print_error "Single executable creator not found"
+        exit 1
+    fi
+}
+
+# Platform-specific bundle creation
+create_platform_bundles() {
+    print_info "Creating platform-specific bundles..."
+    
+    if [ -f "./install/create-platform-bundles.sh" ]; then
+        source ./install/create-platform-bundles.sh
+        main  # Call the main function from create-platform-bundles.sh
+    else
+        print_error "Platform bundle creator not found"
+        exit 1
+    fi
+}
+
+# Size-optimized bundle creation
+create_optimized_bundle() {
+    print_info "Creating size-optimized bundle..."
+    
+    if [ -f "./install/create-optimized-bundle.sh" ]; then
+        source ./install/create-optimized-bundle.sh
+        main  # Call the main function from create-optimized-bundle.sh
+    else
+        print_error "Optimized bundle creator not found"
         exit 1
     fi
 }
@@ -346,8 +388,14 @@ main() {
         "adaptive")
             install_adaptive
             ;;
-        "bundle")
-            create_bundle
+        "single")
+            create_single_executable
+            ;;
+        "platform")
+            create_platform_bundles
+            ;;
+        "optimized")
+            create_optimized_bundle
             ;;
         "repair")
             repair_installation
