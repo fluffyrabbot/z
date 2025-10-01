@@ -143,8 +143,40 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Check for existing installation
+# Check for existing installation using comprehensive detection
 check_existing_installation() {
+    # Use comprehensive installation detector if available
+    if [ -f "./install/installation-detector.sh" ]; then
+        source ./install/installation-detector.sh
+        detect_all_installations
+        
+        if [ $INSTALLATION_COUNT -gt 0 ]; then
+            print_warning "Existing ZChat installation(s) detected!"
+            echo ""
+            generate_installation_report
+            echo ""
+            echo "ZChat appears to already be installed on this system."
+            echo "To avoid conflicts and preserve your existing setup, please use:"
+            echo ""
+            echo "  • Repair existing installation: $0 --repair"
+            echo "  • Clean uninstall if needed"
+            echo ""
+            echo "If you want to force a fresh installation anyway, run:"
+            echo -e "  ${LIGHT_BLUE}$0 --force${NC}"
+            echo ""
+            echo -e "${RED}Exiting to protect existing installation.${NC}"
+            echo "Use --force flag to override this protection."
+            exit 0
+        fi
+        return
+    fi
+    
+    # Fallback to basic detection
+    check_basic_existing_installation
+}
+
+# Basic existing installation check (fallback)
+check_basic_existing_installation() {
     # Check for system installation (installed to user directories)
     local system_installed=false
     if [ -f "$HOME/.config/zchat/user.yaml" ]; then

@@ -461,13 +461,38 @@ force_reinstall() {
     fi
 }
 
-# Function to detect installation type
+# Function to detect installation type using comprehensive detection
 detect_installation_type() {
+    # Use comprehensive installation detector if available
+    if [ -f "./install/installation-detector.sh" ]; then
+        source ./install/installation-detector.sh
+        detect_all_installations
+        get_installation_summary
+    else
+        # Fallback to basic detection
+        detect_basic_installation_type
+    fi
+}
+
+# Basic installation type detection (fallback)
+detect_basic_installation_type() {
     local install_type="unknown"
     local detected_types=()
     
+    # Check for standard installations (platform-sensitive)
+    local config_dir
+    if [ -n "$XDG_CONFIG_HOME" ]; then
+        config_dir="$XDG_CONFIG_HOME/zchat"
+    elif [ "$OS_TYPE" = "windows" ]; then
+        config_dir="${APPDATA:-$HOME/AppData/Roaming}/zchat"
+    elif [ "$OS_TYPE" = "macos" ]; then
+        config_dir="$HOME/Library/Application Support/zchat"
+    else
+        config_dir="$HOME/.config/zchat"
+    fi
+    
     # Check for standard installations
-    if [ -f "$HOME/.local/bin/z" ] || [ -d "$HOME/.config/zchat" ]; then
+    if [ -d "$config_dir" ]; then
         detected_types+=("standard")
     fi
     
