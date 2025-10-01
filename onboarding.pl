@@ -327,7 +327,8 @@ sub run_interactive_demo() {
     say "Created demo session: demo/onboarding";
     say "";
     
-    # Add some pins
+    # Clear any existing pins and add fresh ones
+    $z->clear_pins();
     $z->pin("You are demonstrating ZChat features", { role => 'system' });
     $z->pin("This is a user pin for context", { role => 'user' });
     $z->pin("I will provide helpful examples", { role => 'assistant' });
@@ -364,11 +365,12 @@ sub show_next_steps() {
     print_section("Documentation", 
         "Comprehensive documentation is available:\n\n" .
         "z --help              # Full CLI reference\n" .
-        "z --help-cli          # Basic CLI usage\n" .
-        "z --help-pins         # Pin system documentation\n" .
-        "z --status            # Current configuration\n\n" .
+        "z --status            # Current configuration\n" .
+        "z --help-pins         # Pin system documentation (from source)\n\n" .
         "README.md             # Project overview\n" .
         "PRECEDENCE.md         # Configuration system\n" .
+        "INSTALLATION.md       # Installation guide\n" .
+        "DEPENDENCIES.md       # Dependencies\n" .
         "help/cli.md           # CLI usage guide\n" .
         "help/pins.md          # Pin system guide"
     );
