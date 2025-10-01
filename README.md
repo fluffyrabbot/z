@@ -52,11 +52,28 @@ cd z
 **Windows (Double-click):**
 - Double-click `install.bat` for a GUI-friendly installation
 
+**Installer Differences:**
+- **`install.sh`**: Simplified installer (4 modes) - Fast, reliable, essential features only
+- **`install.ps1`**: Full-featured installer (8 modes) - Complete functionality including bundle creation
+- **`install.bat`**: Simple wrapper - Handles PowerShell execution policy, launches `install.ps1`
+
 **Installation Options:**
-- `./install.sh` / `.\install.ps1` - Standard installation (default)
-- `./install.sh --minimal` / `.\install.ps1 -Minimal` - Core dependencies only
-- `./install.sh --repair` / `.\install.ps1 -Repair` - Repair existing installation
-- `./install.sh --onboarding` / `.\install.ps1 -Onboarding` - Run interactive tutorial
+
+**Bash Installer (Linux/macOS/WSL2):**
+- `./install.sh` - Standard installation (default)
+- `./install.sh --minimal` - Core dependencies only
+- `./install.sh --repair` - Repair existing installation
+- `./install.sh --onboarding` - Run interactive tutorial
+
+**PowerShell Installer (Windows):**
+- `.\install.ps1` - Smart installation with environment detection (default)
+- `.\install.ps1 -Minimal` - Core dependencies only
+- `.\install.ps1 -Standard` - Standard installation with interactive prompts
+- `.\install.ps1 -Bundle` - Create static bundle (self-contained) [RECOMMENDED]
+- `.\install.ps1 -Single` - Create single executable (PAR Packer)
+- `.\install.ps1 -Platform` - Create platform-specific bundles
+- `.\install.ps1 -Optimized` - Create size-optimized bundle
+- `.\install.ps1 -Repair` - Repair existing installation
 
 **Installation Features:**
 - **Robust error handling** - Optional module failures don't break installation
@@ -575,70 +592,141 @@ cd z
 
 #### **Installation Methods**
 
-**1. Single Executable (Ultimate Portability)**
-```bash
-./install.sh --single
-```
-- Single file executable (PAR Packer)
-- Contains entire ZChat app in one file
-- Zero external dependencies
-- Works offline
-- Ultimate portability
-- **Note**: Creates config files in `~/.config/zchat/` when run
+**Bash Installer (Linux/macOS/WSL2) - Simplified:**
 
-**2. Platform-Specific Bundles (Optimized)**
-```bash
-./install.sh --platform
-```
-- Optimized for specific platforms (Linux, macOS, Windows)
-- Architecture-specific builds (x86_64, ARM64)
-- Platform-optimized performance
-- Reduced bundle size per platform
-
-**3. Size-Optimized Bundle (Minimal)**
-```bash
-./install.sh --optimized
-```
-- Only includes actually used modules
-- Minimal bundle size
-- Faster downloads and transfers
-- Reduced storage requirements
-
-**4. Standard Installation (Full Features)**
+**1. Standard Installation (Recommended)**
 ```bash
 ./install.sh
 ```
 - Complete ZChat with all features
-- Requires CPAN and system packages
-- Most feature-complete
-- May require troubleshooting
+- Automatic dependency detection and installation
+- Best for most users
+- Full access to all modules
 
-**5. Minimal Installation (Quick Setup)**
+**2. Minimal Installation (Quick Setup)**
 ```bash
 ./install.sh --minimal
 ```
 - Core dependencies only
 - Fast installation
-- Image processing disabled
 - Good for basic usage
+- Can add more modules later
+
+**3. Repair Installation (Maintenance)**
+```bash
+./install.sh --repair
+```
+- Repair missing dependencies
+- Fix installation issues
+- Update to latest version
+- Diagnose problems
+
+**4. Interactive Tutorial**
+```bash
+./install.sh --onboarding
+```
+- Run comprehensive tutorial
+- Learn ZChat features
+- Interactive demonstrations
+- Perfect for new users
+
+**PowerShell Installer (Windows) - Full Featured:**
+
+**1. Smart Installation (Default)**
+```powershell
+.\install.ps1
+```
+- Automatic environment detection
+- Optimal installation for your system
+- Handles Windows-specific requirements
+
+**2. Bundle Creation (Recommended)**
+```powershell
+.\install.ps1 -Bundle
+```
+- Self-contained installation
+- No external dependencies
+- Perfect for distribution
+- Works offline after creation
+
+**3. Single Executable**
+```powershell
+.\install.ps1 -Single
+```
+- Single file executable (PAR Packer)
+- Ultimate portability
+- No installation required
+- Perfect for sharing
+
+**4. Platform-Specific Bundles**
+```powershell
+.\install.ps1 -Platform
+```
+- Optimized for specific architectures
+- Smaller size
+- Better performance
+- Multiple platform support
+
+**5. Size-Optimized Bundle**
+```powershell
+.\install.ps1 -Optimized
+```
+- Minimal bundle size
+- Only essential modules
+- Fast startup
+- Good balance of size vs functionality
+
+**6. Standard Installation**
+```powershell
+.\install.ps1 -Standard
+```
+- Interactive prompts
+- Full feature set
+- Development-friendly
+- Complete customization
+
+**7. Minimal Installation**
+```powershell
+.\install.ps1 -Minimal
+```
+- Core dependencies only
+- Quick setup
+- Basic functionality
+- Can upgrade later
+
+**8. Repair Installation**
+```powershell
+.\install.ps1 -Repair
+```
+- Interactive repair menu
+- Fix dependencies
+- Update installation
+- Clean uninstall option
 
 #### **Repair and Maintenance**
+
+**Bash Installer:**
 ```bash
-./install.sh --repair  # Repair, update, or uninstall ZChat
+./install.sh --repair  # Repair missing dependencies
 ```
 
-**Repair Options:**
-1. Repair Dependencies - Reinstall missing Perl modules
-2. Update Installation - Reinstall with latest version  
-3. Force Reinstall - Complete reinstall with backup
-4. Clean Uninstall - Remove ZChat completely
-5. Diagnose Issues - Check installation health
-6. Restore from Backup - Restore from previous backup
+**PowerShell Installer:**
+```powershell
+.\install.ps1 -Repair  # Interactive repair menu
+```
+
+**Available Repair Options:**
+1. **Repair Dependencies** - Reinstall missing Perl modules
+2. **Update Installation** - Reinstall with latest version  
+3. **Force Reinstall** - Complete reinstall with backup
+4. **Clean Uninstall** - Remove ZChat completely
+5. **Diagnose Issues** - Check installation health
 
 #### **Additional Tools**
 ```bash
-./onboarding.pl     # Interactive feature tour
-./health-check.pl   # Verify everything works
+./install.sh --onboarding  # Interactive tutorial (recommended)
+./onboarding.pl            # Direct tutorial access
+./health-check.pl          # Verify everything works
 ```
 
 **Supported Systems:**
