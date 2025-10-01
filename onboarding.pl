@@ -9,6 +9,7 @@ use strict;
 use warnings;
 
 use utf8;
+use Encode qw(encode_utf8);
 use FindBin;
 use lib "$FindBin::RealBin/lib";
 
@@ -30,8 +31,8 @@ sub print_header($title) {
 
 sub print_section($title, $content) {
     say "$info$title$rst";
-    say $content;
-    say "";
+    print encode_utf8($content);
+    print "\n\n";
 }
 
 sub wait_for_user($prompt = "Press Enter to continue...") {
@@ -327,9 +328,9 @@ sub run_interactive_demo() {
     say "";
     
     # Add some pins
-    $z->pin("You are demonstrating ZChat features", role => 'system', method => 'concat');
-    $z->pin("This is a user pin for context", role => 'user', method => 'msg');
-    $z->pin("I will provide helpful examples", role => 'assistant', method => 'msg');
+    $z->pin("You are demonstrating ZChat features", { role => 'system' });
+    $z->pin("This is a user pin for context", { role => 'user' });
+    $z->pin("I will provide helpful examples", { role => 'assistant' });
     
     say "Added demonstration pins:";
     my $pins = $z->list_pins();
